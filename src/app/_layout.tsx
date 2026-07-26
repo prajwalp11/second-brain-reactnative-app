@@ -1,28 +1,44 @@
 import { Slot, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from '@/store/auth-context';
+import { getDomains } from '@/services/domains';
 
 function RootLayoutNav() {
   const { token, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const [checkingDomains, setCheckingDomains] = useState(false);
 
   useEffect(() => {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const onSetupScreen = segments[1] === 'setup' || segments[1] === 'setup-review';
 
     if (!token && !inAuthGroup) {
-      // Not logged in, redirect to login
       router.replace('/(auth)/login');
-    } else if (token && inAuthGroup) {
-      // Logged in but still on auth screen, redirect to main app
-      router.replace('/(tabs)');
+    } else if (token && inAuthGroup && !onSetupScreen) {
+      // Logged in, on login/register screen — check if user has domains
+      setCheckingDomains(true);
+      getDomains()
+        .then((domains) => {
+          if (domains.length === 0) {
+            router.replace('/(auth)/setup');
+          } else {
+            router.replace('/(tabs)');
+          }
+        })
+        .catch(() => {
+          router.replace('/(auth)/setup');
+        })
+        .finally(() => setCheckingDomains(false));
+    } else if (token && !inAuthGroup) {
+      // Already on tabs, do nothing
     }
   }, [token, isLoading, segments]);
 
-  if (isLoading) {
+  if (isLoading || checkingDomains) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' }}>
         <ActivityIndicator size="large" color="#3b82f6" />
