@@ -1,4 +1,4 @@
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from '@/store/auth-context';
@@ -19,7 +19,6 @@ function RootLayoutNav() {
     if (!token && !inAuthGroup) {
       router.replace('/(auth)/login');
     } else if (token && inAuthGroup && !onSetupScreen) {
-      // Logged in, on login/register screen — check if user has domains
       setCheckingDomains(true);
       getDomains()
         .then((domains) => {
@@ -33,8 +32,6 @@ function RootLayoutNav() {
           router.replace('/(auth)/setup');
         })
         .finally(() => setCheckingDomains(false));
-    } else if (token && !inAuthGroup) {
-      // Already on tabs, do nothing
     }
   }, [token, isLoading, segments]);
 
@@ -46,7 +43,19 @@ function RootLayoutNav() {
     );
   }
 
-  return <Slot />;
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0f172a' } }}>
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen
+        name="settings"
+        options={{
+          presentation: 'card',
+          animation: 'slide_from_right',
+        }}
+      />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {

@@ -1,5 +1,6 @@
-import * as SecureStore from "expo-secure-store";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import * as SecureStore from 'expo-secure-store';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { setOnTokenExpired } from '@/services/api';
 
 interface AuthContextType {
   token: string | null;
@@ -22,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // On app start, check if we have a stored token
   useEffect(() => {
     async function loadToken() {
-      const storedToken = await SecureStore.getItemAsync("accessToken");
+      const storedToken = await SecureStore.getItemAsync('accessToken');
       if (storedToken) {
         setToken(storedToken);
       }
@@ -31,14 +32,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadToken();
   }, []);
 
-  const signIn = async (newToken: string) => {
-    await SecureStore.setItemAsync("accessToken", newToken);
-    setToken(newToken);
+  const signOut = async () => {
+    await SecureStore.deleteItemAsync('accessToken');
+    setToken(null);
   };
 
-  const signOut = async () => {
-    await SecureStore.deleteItemAsync("accessToken");
-    setToken(null);
+  // Register the API interceptor callback so 401s trigger a proper logout
+  useEffect(() => {
+    setOnTokenExpired(() => {
+      setToken(null);
+    });
+  }, []);
+
+  const signIn = async (newToken: string) => {
+    await SecureStore.setItemAsync('accessToken', newToken);
+    setToken(newToken);
   };
 
   return (

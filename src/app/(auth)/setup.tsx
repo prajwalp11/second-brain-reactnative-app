@@ -80,15 +80,14 @@ export default function SetupScreen() {
 
     setIsLoading(true);
     try {
-      await Promise.all(
-        selectedDomains.map((domainType) =>
-          createDomain({
-            domainType,
-            skillLevel: skillLevels[domainType],
-            customName: customNames[domainType]?.trim() || undefined,
-          })
-        )
-      );
+      // Create domains sequentially so AI can avoid schedule conflicts
+      for (const domainType of selectedDomains) {
+        await createDomain({
+          domainType,
+          skillLevel: skillLevels[domainType],
+          customName: customNames[domainType]?.trim() || undefined,
+        });
+      }
       router.replace('/(auth)/setup-review');
     } catch (error: any) {
       const message = error.response?.data?.message || error.message || 'Something went wrong';
@@ -99,11 +98,12 @@ export default function SetupScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Tell us about you</Text>
-        <Text style={styles.subtitle}>What do you want to track? Pick all that apply.</Text>
-      </View>
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Tell us about you</Text>
+          <Text style={styles.subtitle}>What do you want to track? Pick all that apply.</Text>
+        </View>
 
       {/* Domain grid */}
       <View style={styles.grid}>
@@ -185,6 +185,18 @@ export default function SetupScreen() {
         )}
       </TouchableOpacity>
     </ScrollView>
+
+      {/* Loading overlay while AI builds the system */}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#3b82f6" />
+            <Text style={styles.loadingTitle}>Building your personalised plan</Text>
+            <Text style={styles.loadingSubtext}>Our AI is crafting metrics, milestones, and a schedule just for you...</Text>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -315,5 +327,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+    width: '100%',
+  },
+  loadingTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#f8fafc',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginTop: 10,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

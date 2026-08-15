@@ -11,4 +11,12 @@ export const ENDPOINTS = {
     LIST: '/domains',
     CREATE: '/domains',
   },
+  DASHBOARD: {
+    HOME: '/dashboard',
+    WEEKLY_SNAPSHOT: '/dashboard/weekly-snapshot',
+  },
+  USERS: {
+    PROFILE: '/users/profile',
+    EXPORT: '/users/export',
+  },
 } as const;
