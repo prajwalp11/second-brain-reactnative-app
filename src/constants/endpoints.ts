@@ -19,4 +19,15 @@ export const ENDPOINTS = {
     PROFILE: '/users/profile',
     EXPORT: '/users/export',
   },
+  SESSIONS: {
+    CREATE: '/session-logs',
+    LIST: '/session-logs',
+  },
+  TASKS: {
+    UPDATE_STATUS: (taskId: string) => `/tasks/${taskId}`,
+    DELETE: (taskId: string) => `/tasks/${taskId}`,
+  },
+  METRICS: {
+    BY_DOMAIN: (domainId: string) => `/metrics/domain/${domainId}`,
+  },
 } as const;

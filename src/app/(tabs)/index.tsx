@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getDashboard } from '@/services/dashboard';
+import { deleteTask } from '@/services/tasks';
 import {
   DashboardResponse,
   TaskResponse,
@@ -107,6 +109,7 @@ export default function HomeScreen() {
                 key={task.id}
                 task={task}
                 domainName={task.domainId ? dashboard.streaks[task.domainId]?.domainName : undefined}
+                onUpdate={loadDashboard}
               />
             ))
           ) : (
@@ -167,25 +170,33 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Upcoming tasks */}
+        {/* Tasks — sorted: pending (overdue) → today → upcoming */}
         {dashboard.upcomingTasks && dashboard.upcomingTasks.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Upcoming</Text>
-            {dashboard.upcomingTasks.map((task) => (
+            <Text style={styles.sectionTitle}>Tasks</Text>
+            {[...dashboard.upcomingTasks]
+              .sort((a, b) => {
+                const now = new Date();
+                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const aDate = a.dueDate || '';
+                const bDate = b.dueDate || '';
+                // Overdue first, then today, then future
+                const aOrder = aDate < today ? 0 : aDate === today ? 1 : 2;
+                const bOrder = bDate < today ? 0 : bDate === today ? 1 : 2;
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                return aDate.localeCompare(bDate);
+              })
+              .map((task) => (
               <TaskCard
                 key={task.id}
                 task={task}
                 domainName={task.domainId ? dashboard.streaks[task.domainId]?.domainName : undefined}
+                onUpdate={loadDashboard}
               />
             ))}
           </View>
         )}
 
-        {/* Quick log button */}
-        <TouchableOpacity style={styles.quickLogButton} onPress={() => router.push('/(tabs)/log')}>
-          <Ionicons name="add-circle" size={22} color="#ffffff" />
-          <Text style={styles.quickLogText}>Quick Log</Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -193,21 +204,106 @@ export default function HomeScreen() {
 
 // --- Sub-components ---
 
-function TaskCard({ task, domainName }: { task: TaskResponse; domainName?: string }) {
-  const statusColors: Record<string, { bg: string; text: string }> = {
-    TODO: { bg: '#fef3c7', text: '#92400e' },
-    IN_PROGRESS: { bg: '#dbeafe', text: '#1e40af' },
-    DONE: { bg: '#d1fae5', text: '#065f46' },
-  };
-  const statusLabels: Record<string, string> = {
-    TODO: 'Pending',
-    IN_PROGRESS: 'Active',
-    DONE: 'Done',
-  };
-  const colors = statusColors[task.status] || statusColors.TODO;
+function TaskCard({ task, domainName, onUpdate }: { task: TaskResponse; domainName?: string; onUpdate: () => void }) {
+  const router = useRouter();
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [isActioning, setIsActioning] = useState(false);
 
+  // Determine display status based on due date
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const dueDate = task.dueDate || '';
+  let displayStatus: string;
+  let statusColors: { bg: string; text: string };
+
+  if (task.status === 'DONE') {
+    displayStatus = 'Done';
+    statusColors = { bg: '#d1fae5', text: '#065f46' };
+  } else if (dueDate < today) {
+    displayStatus = 'Pending';
+    statusColors = { bg: '#fef3c7', text: '#92400e' };
+  } else if (dueDate === today) {
+    displayStatus = 'Todo';
+    statusColors = { bg: '#dbeafe', text: '#1e40af' };
+  } else {
+    displayStatus = 'Upcoming';
+    statusColors = { bg: '#e0e7ff', text: '#3730a3' };
+  }
+
+  const handleRemove = () => {
+    Alert.alert(
+      'Delete task?',
+      'This will permanently remove the task.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsActioning(true);
+            try {
+              await deleteTask(task.id);
+              onUpdate();
+            } catch (error) {
+              console.log('Failed to remove task:', error);
+            } finally {
+              setIsActioning(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleLog = () => {
+    router.push({
+      pathname: '/log-modal',
+      params: { domainId: task.domainId || '', sessionType: task.title || '', domainName: domainName || '' },
+    });
+  };
+
+  const isPending = task.status === 'TODO' || task.status === 'IN_PROGRESS';
+
+  if (isFlipped && isPending) {
+    // Back of card — action buttons only
+    return (
+      <TouchableOpacity
+        style={styles.taskCardBack}
+        onPress={() => setIsFlipped(false)}
+        activeOpacity={0.9}
+      >
+        <TouchableOpacity
+          style={styles.taskBackButton}
+          onPress={handleLog}
+        >
+          <Text style={styles.taskBackButtonText}>Log</Text>
+        </TouchableOpacity>
+        <View style={styles.taskBackDivider} />
+        <TouchableOpacity
+          style={styles.taskBackButton}
+          onPress={handleRemove}
+          disabled={isActioning}
+        >
+          <Text style={[styles.taskBackButtonText, { color: '#ef4444' }]}>Delete</Text>
+        </TouchableOpacity>
+        <View style={styles.taskBackDivider} />
+        <TouchableOpacity
+          style={styles.taskBackButton}
+          onPress={() => setIsFlipped(false)}
+        >
+          <Text style={[styles.taskBackButtonText, { color: '#64748b' }]}>Back</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  }
+
+  // Front of card
   return (
-    <View style={styles.taskCard}>
+    <TouchableOpacity
+      style={styles.taskCard}
+      onPress={() => isPending && setIsFlipped(true)}
+      activeOpacity={isPending ? 0.7 : 1}
+    >
       <View style={styles.taskContent}>
         <Text style={styles.taskTitle}>{task.title}</Text>
         <View style={styles.taskMeta}>
@@ -217,12 +313,12 @@ function TaskCard({ task, domainName }: { task: TaskResponse; domainName?: strin
           )}
         </View>
       </View>
-      <View style={[styles.statusPill, { backgroundColor: colors.bg }]}>
-        <Text style={[styles.statusText, { color: colors.text }]}>
-          {statusLabels[task.status] || task.status}
+      <View style={[styles.statusPill, { backgroundColor: statusColors.bg }]}>
+        <Text style={[styles.statusText, { color: statusColors.text }]}>
+          {displayStatus}
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -404,6 +500,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
   },
+  taskCardBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  taskBackButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  taskBackButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  taskBackDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#334155',
+  },
   statusPill: {
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -541,20 +663,4 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 
-  // Quick log button
-  quickLogButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3b82f6',
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 8,
-    marginTop: 4,
-  },
-  quickLogText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
 });
