@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getDomains } from '@/services/domains';
 import { getMetricsForDomain, createSessionLog } from '@/services/sessions';
@@ -42,6 +43,7 @@ const DEFAULT_SESSION_TYPE_PLACEHOLDER = 'e.g. Practice, Study, Drill';
 
 export default function LogScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
 
   // Data
   const [domains, setDomains] = useState<DomainResponse[]>([]);
@@ -60,20 +62,24 @@ export default function LogScreen() {
   const [notes, setNotes] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
 
-  // Load domains on mount
+  // Reload domains every time the tab is focused
   useEffect(() => {
-    async function loadDomains() {
-      try {
-        const data = await getDomains();
-        setDomains(data.filter((d) => d.status === 'ACTIVE'));
-      } catch (error) {
-        console.log('Failed to load domains:', error);
-      } finally {
-        setIsLoadingDomains(false);
-      }
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadDomains();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const loadDomains = async () => {
+    try {
+      const data = await getDomains();
+      setDomains(data.filter((d) => d.status === 'ACTIVE'));
+    } catch (error) {
+      console.log('Failed to load domains:', error);
+    } finally {
+      setIsLoadingDomains(false);
     }
-    loadDomains();
-  }, []);
+  };
 
   // Load metrics when domain changes
   useEffect(() => {
@@ -218,30 +224,45 @@ export default function LogScreen() {
         <Text style={styles.title}>Log session</Text>
         <Text style={styles.subtitle}>Record what you did today</Text>
 
-        {/* Domain selector — horizontal pill row */}
+        {/* Domain selector */}
         <View style={styles.section}>
           <Text style={styles.label}>Domain</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pillRow}
-          >
-            {domains.map((domain) => {
-              const isSelected = selectedDomainId === domain.id;
-              return (
+          {!selectedDomainId ? (
+            <View style={styles.domainGrid}>
+              {domains.map((domain) => (
                 <TouchableOpacity
                   key={domain.id}
-                  style={[styles.pill, isSelected && styles.pillSelected]}
+                  style={styles.domainGridCard}
                   onPress={() => setSelectedDomainId(domain.id)}
                 >
-                  <Text style={styles.pillIcon}>{getDomainIcon(domain.domainType)}</Text>
-                  <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
-                    {getDomainLabel(domain)}
-                  </Text>
+                  <Text style={styles.domainGridIcon}>{getDomainIcon(domain.domainType)}</Text>
+                  <Text style={styles.domainGridLabel}>{getDomainLabel(domain)}</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+              ))}
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.pillRow}
+            >
+              {domains.map((domain) => {
+                const isSelected = selectedDomainId === domain.id;
+                return (
+                  <TouchableOpacity
+                    key={domain.id}
+                    style={[styles.pill, isSelected && styles.pillSelected]}
+                    onPress={() => setSelectedDomainId(domain.id)}
+                  >
+                    <Text style={styles.pillIcon}>{getDomainIcon(domain.domainType)}</Text>
+                    <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
+                      {getDomainLabel(domain)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
 
         {/* Session type */}
@@ -411,11 +432,37 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  // Domain pills
+  // Domain pills (horizontal, after selection)
   pillRow: {
     flexDirection: 'row',
     gap: 10,
     paddingRight: 20,
+  },
+
+  // Domain grid (vertical, before selection)
+  domainGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  domainGridCard: {
+    width: '31%',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingVertical: 18,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  domainGridIcon: {
+    fontSize: 28,
+    marginBottom: 6,
+  },
+  domainGridLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#e2e8f0',
+    textAlign: 'center',
   },
   pill: {
     flexDirection: 'row',

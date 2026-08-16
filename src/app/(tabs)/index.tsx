@@ -28,6 +28,7 @@ export default function HomeScreen() {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [weeklyExpanded, setWeeklyExpanded] = useState(false);
   const hasFetched = useRef(false);
 
   const loadDashboard = async () => {
@@ -134,11 +135,21 @@ export default function HomeScreen() {
         {/* AI Nudge */}
         {dashboard.aiNudge && <NudgeCard nudge={dashboard.aiNudge} />}
 
-        {/* Weekly stats — grouped by domain */}
+        {/* Weekly stats — collapsible */}
         {dashboard.weeklyStats.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Weekly snapshot</Text>
-            {Object.entries(
+            <TouchableOpacity
+              style={styles.collapsibleHeader}
+              onPress={() => setWeeklyExpanded(!weeklyExpanded)}
+            >
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Weekly snapshot</Text>
+              <Ionicons
+                name={weeklyExpanded ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color="#64748b"
+              />
+            </TouchableOpacity>
+            {weeklyExpanded && Object.entries(
               dashboard.weeklyStats.reduce((acc, stat) => {
                 const name = stat.domainName;
                 if (!acc[name]) acc[name] = [];
@@ -447,6 +458,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#e2e8f0',
+    marginBottom: 14,
+  },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 14,
   },
 

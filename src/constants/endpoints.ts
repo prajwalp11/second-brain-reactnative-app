@@ -10,6 +10,7 @@ export const ENDPOINTS = {
   DOMAINS: {
     LIST: '/domains',
     CREATE: '/domains',
+    DETAIL: (domainId: string) => `/domains/${domainId}`,
   },
   DASHBOARD: {
     HOME: '/dashboard',
@@ -29,5 +30,11 @@ export const ENDPOINTS = {
   },
   METRICS: {
     BY_DOMAIN: (domainId: string) => `/metrics/domain/${domainId}`,
+  },
+  PROGRESS: {
+    PRS: (domainId: string) => `/progress/${domainId}/prs`,
+  },
+  MILESTONES: {
+    BY_DOMAIN: (domainId: string) => `/milestones/${domainId}`,
   },
 } as const;
