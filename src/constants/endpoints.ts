@@ -41,4 +41,14 @@ export const ENDPOINTS = {
   MILESTONES: {
     BY_DOMAIN: (domainId: string) => `/milestones/${domainId}`,
   },
+  AI: {
+    CHAT: '/ai/chat',
+    CONVERSATIONS: '/ai/conversations',
+    MESSAGES: (conversationId: string) => `/ai/conversations/${conversationId}/messages`,
+    APPLY_ACTION: '/ai/actions/apply',
+    REMAINING: '/ai/remaining',
+  },
+  INSIGHTS: {
+    GET: '/insights',
+  },
 } as const;

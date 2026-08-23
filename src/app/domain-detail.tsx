@@ -195,7 +195,16 @@ export default function DomainDetailModal() {
         <View style={styles.actionsSection}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => Alert.alert('Coming soon', 'AI will help you adjust your plan. This feature is being built.')}
+            onPress={() => {
+              router.back();
+              // Navigate to AI tab with domain pre-selected in ADJUST_PLAN mode
+              setTimeout(() => {
+                router.push({
+                  pathname: '/(tabs)/ai',
+                  params: { domainId, chatMode: 'ADJUST_PLAN' },
+                });
+              }, 300);
+            }}
           >
             <Ionicons name="sparkles-outline" size={18} color="#a78bfa" />
             <Text style={[styles.actionButtonText, { color: '#a78bfa' }]}>Edit plan with AI</Text>

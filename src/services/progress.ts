@@ -85,3 +85,19 @@ export async function getMetricsForDomain(domainId: string): Promise<MetricDefin
   const response = await api.get<MetricDefinitionResponse[]>(ENDPOINTS.METRICS.BY_DOMAIN(domainId));
   return response.data;
 }
+
+// ─── Insights ────────────────────────────────────────────────────────────────
+
+export interface InsightsResponse {
+  highlights: string[];
+  patterns: string[];
+  suggestions: string[];
+}
+
+/**
+ * Fetch AI-generated insights (highlights, patterns, suggestions).
+ */
+export async function getInsights(): Promise<InsightsResponse> {
+  const response = await api.get<InsightsResponse>(ENDPOINTS.INSIGHTS.GET);
+  return response.data;
+}

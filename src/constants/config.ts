@@ -1,14 +1,13 @@
-// Toggle this when deploying
-const ENV = 'local' as 'local' | 'production';
+/**
+ * App configuration.
+ *
+ * API_BASE_URL is read from environment variable EXPO_PUBLIC_API_BASE_URL.
+ * Set it in .env file or pass it when starting:
+ *   EXPO_PUBLIC_API_BASE_URL=https://your-server.com/api npx expo start
+ *
+ * Falls back to the .env file value or empty string if not set.
+ */
 
-const CONFIG = {
-  local: {
-    BASE_URL: 'https://rylan-skinless-waltraud.ngrok-free.dev/api',
-  },
-  production: {
-    // Replace with your deployed server URL when you go live
-    BASE_URL: 'https://your-deployed-server.com/api',
-  },
-};
+const FALLBACK_URL = 'https://rylan-skinless-waltraud.ngrok-free.dev/api';
 
-export const API_BASE_URL = CONFIG[ENV].BASE_URL;
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || FALLBACK_URL;

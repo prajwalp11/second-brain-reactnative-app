@@ -18,8 +18,10 @@ import {
   getMilestonesForDomain,
   getTasks,
   getMetricsForDomain,
+  getInsights,
   MilestoneResponse,
   TimeSeriesPoint,
+  InsightsResponse,
 } from '@/services/progress';
 import { getPRsForDomain } from '@/services/domains';
 import { DomainResponse } from '@/types/domain';
@@ -128,6 +130,9 @@ export default function ProgressScreen() {
   // Tasks
   const [tasks, setTasks] = useState<TaskResponse[]>([]);
 
+  // Insights
+  const [insights, setInsights] = useState<InsightsResponse | null>(null);
+
   // ─── Data Loading ──────────────────────────────────────────────────────────
 
   const loadDomains = async () => {
@@ -204,6 +209,16 @@ export default function ProgressScreen() {
     }
   };
 
+  const loadInsights = async () => {
+    try {
+      const data = await getInsights();
+      setInsights(data);
+    } catch (err) {
+      console.error('[Progress] Failed to load insights:', err);
+      setInsights(null);
+    }
+  };
+
   // ─── Effects ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -227,7 +242,7 @@ export default function ProgressScreen() {
 
   const loadInitial = async () => {
     setIsLoading(true);
-    await loadDomains();
+    await Promise.all([loadDomains(), loadInsights()]);
     setIsLoading(false);
   };
 
@@ -419,6 +434,43 @@ export default function ProgressScreen() {
         </View>
 
         {/* ─── Milestones Section ───────────────────────────────────── */}
+        {insights && (insights.highlights.length > 0 || insights.patterns.length > 0 || insights.suggestions.length > 0) && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderWithIcon}>
+              <Ionicons name="bulb" size={18} color="#fbbf24" />
+              <Text style={styles.sectionTitle}>AI Insights</Text>
+            </View>
+
+            {insights.highlights.length > 0 && (
+              <View style={styles.insightCard}>
+                <Text style={styles.insightCardLabel}>✨ Highlights</Text>
+                {insights.highlights.map((h, i) => (
+                  <Text key={i} style={styles.insightText}>• {h}</Text>
+                ))}
+              </View>
+            )}
+
+            {insights.patterns.length > 0 && (
+              <View style={styles.insightCard}>
+                <Text style={styles.insightCardLabel}>📊 Patterns</Text>
+                {insights.patterns.map((p, i) => (
+                  <Text key={i} style={styles.insightText}>• {p}</Text>
+                ))}
+              </View>
+            )}
+
+            {insights.suggestions.length > 0 && (
+              <View style={styles.insightCard}>
+                <Text style={styles.insightCardLabel}>💡 Suggestions</Text>
+                {insights.suggestions.map((s, i) => (
+                  <Text key={i} style={styles.insightText}>• {s}</Text>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ─── Milestones Section (original) ────────────────────────── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Milestones</Text>
 
@@ -964,5 +1016,27 @@ const styles = StyleSheet.create({
   emptyCardText: {
     fontSize: 13,
     color: COLORS.textDim,
+  },
+
+  // ─── Insights ──────────────────────────────────────────────────
+  insightCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 14,
+    marginBottom: 10,
+  },
+  insightCardLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+  },
+  insightText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    lineHeight: 20,
+    marginBottom: 4,
   },
 });
