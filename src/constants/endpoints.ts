@@ -11,6 +11,7 @@ export const ENDPOINTS = {
     LIST: '/domains',
     CREATE: '/domains',
     DETAIL: (domainId: string) => `/domains/${domainId}`,
+    CHART_DATA: (domainId: string) => `/domains/${domainId}/chart-data`,
   },
   DASHBOARD: {
     HOME: '/dashboard',
@@ -25,6 +26,8 @@ export const ENDPOINTS = {
     LIST: '/session-logs',
   },
   TASKS: {
+    LIST: '/tasks',
+    UPCOMING: '/tasks/upcoming',
     UPDATE_STATUS: (taskId: string) => `/tasks/${taskId}`,
     DELETE: (taskId: string) => `/tasks/${taskId}`,
   },
@@ -32,6 +35,7 @@ export const ENDPOINTS = {
     BY_DOMAIN: (domainId: string) => `/metrics/domain/${domainId}`,
   },
   PROGRESS: {
+    METRIC: (domainId: string, metricKey: string) => `/progress/${domainId}/metric/${metricKey}`,
     PRS: (domainId: string) => `/progress/${domainId}/prs`,
   },
   MILESTONES: {
