@@ -6,8 +6,8 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getDomains } from '@/services/domains';
@@ -140,7 +140,7 @@ export default function SetupReviewScreen() {
             <Text style={styles.sectionLabel}>Resource</Text>
             <TouchableOpacity
               style={styles.resourceCard}
-              onPress={() => Linking.openURL(domain.linkedResourceUrl!)}
+              onPress={() => WebBrowser.openBrowserAsync(domain.linkedResourceUrl!)}
             >
               <Text style={styles.resourceTitle}>
                 {domain.linkedResourceTitle || 'Linked Resource'}

@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { getDashboard } from '@/services/dashboard';
 import { deleteTask } from '@/services/tasks';
 import {
@@ -323,6 +324,21 @@ function TaskCard({ task, domainName, onUpdate }: { task: TaskResponse; domainNa
             <Text style={styles.taskDue}>{new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
           )}
         </View>
+        {task.linkedResourceUrl && (
+          <TouchableOpacity
+            style={styles.taskResourceLink}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              WebBrowser.openBrowserAsync(task.linkedResourceUrl!);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="play-circle" size={16} color="#3b82f6" />
+            <Text style={styles.taskResourceText} numberOfLines={1}>
+              {task.linkedResourceTitle || 'Watch Resource'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
       <View style={[styles.statusPill, { backgroundColor: statusColors.bg }]}>
         <Text style={[styles.statusText, { color: statusColors.text }]}>
@@ -516,6 +532,23 @@ const styles = StyleSheet.create({
   taskDue: {
     fontSize: 12,
     color: '#64748b',
+  },
+  taskResourceLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    backgroundColor: '#1e3a5f',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  taskResourceText: {
+    fontSize: 12,
+    color: '#3b82f6',
+    fontWeight: '600',
+    maxWidth: 180,
   },
   taskCardBack: {
     flexDirection: 'row',

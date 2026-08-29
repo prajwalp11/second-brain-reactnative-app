@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BarChart } from 'react-native-chart-kit';
+import * as WebBrowser from 'expo-web-browser';
 import { getDomains } from '@/services/domains';
 import {
   getMetricProgress,
@@ -654,6 +655,18 @@ function TaskCard({ task, domains }: { task: TaskResponse; domains: DomainRespon
             <Text style={styles.taskDueDate}>{formatDate(task.dueDate)}</Text>
           )}
         </View>
+        {task.linkedResourceUrl && (
+          <TouchableOpacity
+            style={styles.taskResourceLink}
+            onPress={() => WebBrowser.openBrowserAsync(task.linkedResourceUrl!)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="play-circle" size={14} color={COLORS.primary} />
+            <Text style={styles.taskResourceText} numberOfLines={1}>
+              {task.linkedResourceTitle || 'Watch Resource'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
       {isDone && <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />}
     </View>
@@ -1002,6 +1015,23 @@ const styles = StyleSheet.create({
   taskDueDate: {
     fontSize: 11,
     color: COLORS.textDim,
+  },
+  taskResourceLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 6,
+    backgroundColor: COLORS.progressBg,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  taskResourceText: {
+    fontSize: 11,
+    color: COLORS.primary,
+    fontWeight: '600',
+    maxWidth: 160,
   },
 
   // ─── Empty Card ────────────────────────────────────────────────

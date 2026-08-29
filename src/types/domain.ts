@@ -18,8 +18,6 @@
     status: string;
     planDescription: string | null;
     weeklySchedule: string | null;
-    linkedResourceUrl: string | null;
-    linkedResourceTitle: string | null;
     currentStreak: number;
     longestStreak: number;
     lastLogDate: string | null;

@@ -10,6 +10,8 @@ export interface TaskResponse {
   progress: number | null;
   aiGenerated: boolean;
   daysRemaining: number | null;
+  linkedResourceUrl: string | null;
+  linkedResourceTitle: string | null;
 }
 
 export interface StreakResponse {

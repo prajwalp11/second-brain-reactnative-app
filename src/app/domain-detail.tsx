@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Linking,
   Alert,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -153,28 +153,6 @@ export default function DomainDetailModal() {
                 ))}
               </View>
             )}
-          </View>
-        )}
-
-        {/* Linked resource */}
-        {domain.linkedResourceUrl && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Linked Guide</Text>
-            <TouchableOpacity
-              style={styles.resourceCard}
-              onPress={() => Linking.openURL(domain.linkedResourceUrl!)}
-            >
-              <Ionicons name="play-circle" size={24} color="#3b82f6" />
-              <View style={styles.resourceContent}>
-                <Text style={styles.resourceTitle} numberOfLines={2}>
-                  {domain.linkedResourceTitle || 'Learning Resource'}
-                </Text>
-                <Text style={styles.resourceUrl} numberOfLines={1}>
-                  {domain.linkedResourceUrl}
-                </Text>
-              </View>
-              <Ionicons name="open-outline" size={16} color="#64748b" />
-            </TouchableOpacity>
           </View>
         )}
 
