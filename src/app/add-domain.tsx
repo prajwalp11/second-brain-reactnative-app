@@ -16,7 +16,7 @@ import { createDomain } from '@/services/domains';
 import { DOMAIN_TYPES, SKILL_LEVELS } from '@/constants/domains';
 import { DomainType, SkillLevel } from '@/types/domain';
 
-const PRESETS = DOMAIN_TYPES.filter((d) => d.type !== 'CUSTOM');
+const PRESETS = DOMAIN_TYPES;
 
 export default function AddDomainModal() {
   const insets = useSafeAreaInsets();
@@ -24,6 +24,7 @@ export default function AddDomainModal() {
 
   const [selectedType, setSelectedType] = useState<DomainType | null>(null);
   const [customName, setCustomName] = useState('');
+  const [context, setContext] = useState('');
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -38,6 +39,7 @@ export default function AddDomainModal() {
       await createDomain({
         domainType: selectedType,
         customName: isCustom ? customName.trim() : undefined,
+        context: context.trim() || undefined,
         skillLevel,
       });
       Alert.alert(
@@ -64,7 +66,7 @@ export default function AddDomainModal() {
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Add new domain</Text>
-            <Text style={styles.subtitle}>Pick a preset or describe your own</Text>
+            <Text style={styles.subtitle}>Pick a domain to get started</Text>
           </View>
           <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
             <Ionicons name="close" size={22} color="#94a3b8" />
@@ -90,21 +92,37 @@ export default function AddDomainModal() {
           })}
         </View>
 
-        {/* Custom option */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Or describe your own goal</Text>
-          <TextInput
-            style={[styles.textInput, selectedType === 'CUSTOM' && styles.textInputActive]}
-            placeholder="e.g. Knitting, Photography, Piano..."
-            placeholderTextColor="#64748b"
-            value={customName}
-            onChangeText={(text) => {
-              setCustomName(text);
-              if (text.trim()) setSelectedType('CUSTOM');
-            }}
-            onFocus={() => setSelectedType('CUSTOM')}
-          />
-        </View>
+        {/* Custom name — only when the Custom button is selected */}
+        {isCustom && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Name your domain</Text>
+            <TextInput
+              style={[styles.textInput, styles.textInputActive]}
+              placeholder="e.g. Knitting, Photography, Piano..."
+              placeholderTextColor="#64748b"
+              value={customName}
+              onChangeText={setCustomName}
+              autoFocus
+            />
+          </View>
+        )}
+
+        {/* Context — optional extra focus, shown once a type is chosen */}
+        {selectedType && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Anything specific? (optional)</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. Spanish, conversational focus"
+              placeholderTextColor="#64748b"
+              value={context}
+              onChangeText={setContext}
+            />
+            <Text style={styles.helperText}>
+              Helps the AI tailor your plan. Leave blank for a general plan.
+            </Text>
+          </View>
+        )}
 
         {/* Skill level */}
         {selectedType && (
@@ -257,7 +275,11 @@ const styles = StyleSheet.create({
   textInputActive: {
     borderColor: '#3b82f6',
   },
-
+  helperText: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 8,
+  },
   // Skill level
   skillRow: {
     flexDirection: 'row',

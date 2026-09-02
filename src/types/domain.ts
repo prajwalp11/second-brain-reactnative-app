@@ -6,6 +6,7 @@
   export interface CreateDomainRequest {
     domainType: DomainType;
     customName?: string;
+    context?: string;
     skillLevel: SkillLevel;
     linkedResourceUrl?: string;
   }
@@ -17,6 +18,7 @@
     skillLevel: SkillLevel;
     status: string;
     planDescription: string | null;
+    context: string | null;
     weeklySchedule: string | null;
     currentStreak: number;
     longestStreak: number;

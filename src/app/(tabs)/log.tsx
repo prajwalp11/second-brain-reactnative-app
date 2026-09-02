@@ -114,6 +114,23 @@ export default function LogScreen() {
     return domain.customName || DOMAIN_TYPES.find((d) => d.type === domain.domainType)?.label || domain.domainType;
   };
 
+  // Clamp metric input to the metric's declared/inferred bounds as the user types,
+  // so values can't exceed e.g. 100% (matches server-side clamping).
+  const handleMetricChange = (metric: MetricDefinitionResponse, text: string) => {
+    let next = text;
+    const parsed = parseFloat(text);
+    if (!isNaN(parsed)) {
+      let clamped = parsed;
+      if (metric.maxValue != null && clamped > metric.maxValue) clamped = metric.maxValue;
+      if (metric.minValue != null && clamped < metric.minValue) clamped = metric.minValue;
+      if (clamped !== parsed) {
+        // Keep the field as a clean string (strips the out-of-range digits the user typed)
+        next = String(clamped);
+      }
+    }
+    setMetricValues((prev) => ({ ...prev, [metric.metricKey]: next }));
+  };
+
   const resetForm = () => {
     setSelectedDomainId(null);
     setSessionType('');
@@ -311,16 +328,17 @@ export default function LogScreen() {
                 <View key={metric.id} style={styles.metricRow}>
                   <View style={styles.metricLabelRow}>
                     <Text style={styles.metricLabel}>{metric.label}</Text>
-                    <Text style={styles.metricUnit}>{metric.unit}</Text>
+                    <Text style={styles.metricUnit}>
+                      {metric.unit}
+                      {metric.maxValue != null ? `  (max ${metric.maxValue})` : ''}
+                    </Text>
                   </View>
                   <TextInput
                     style={styles.metricInput}
                     placeholder="0"
                     placeholderTextColor="#475569"
                     value={metricValues[metric.metricKey] || ''}
-                    onChangeText={(text) =>
-                      setMetricValues((prev) => ({ ...prev, [metric.metricKey]: text }))
-                    }
+                    onChangeText={(text) => handleMetricChange(metric, text)}
                     keyboardType="decimal-pad"
                   />
                 </View>

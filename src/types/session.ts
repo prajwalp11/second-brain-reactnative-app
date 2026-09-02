@@ -6,6 +6,8 @@ export interface MetricDefinitionResponse {
   isTrackedPerSession: boolean;
   isPR: boolean;
   isHigherBetter: boolean;
+  minValue: number | null;
+  maxValue: number | null;
   displayOrder: number;
 }
 
