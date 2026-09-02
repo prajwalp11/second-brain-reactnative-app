@@ -8,6 +8,6 @@
  * Falls back to the .env file value or empty string if not set.
  */
 
-const FALLBACK_URL = 'https://rylan-skinless-waltraud.ngrok-free.dev/api';
+const FALLBACK_URL = 'https://secondbrainserver.duckdns.org/api';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || FALLBACK_URL;

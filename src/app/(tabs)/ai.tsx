@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getDomains } from '@/services/domains';
 import {
@@ -84,12 +85,17 @@ export default function AiScreen() {
   const [remaining, setRemaining] = useState<number>(3);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // ─── Load Data ─────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    loadInitial();
-  }, []);
+  // Reload domains + remaining count every time the tab gains focus,
+  // so newly created domains appear immediately.
+  useFocusEffect(
+    useCallback(() => {
+      loadInitial();
+    }, [])
+  );
 
   const loadInitial = async () => {
     try {
@@ -105,6 +111,22 @@ export default function AiScreen() {
       setIsLoading(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const [domainsData, remainingData] = await Promise.all([
+        getDomains(),
+        getRemainingMessages(),
+      ]);
+      setDomains(domainsData.filter((d) => d.status === 'ACTIVE'));
+      setRemaining(remainingData);
+    } catch (err) {
+      console.error('[AI] Refresh failed:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   // ─── Send Message ──────────────────────────────────────────────────────────
 
@@ -235,7 +257,13 @@ export default function AiScreen() {
 
       {/* Domain Picker */}
       {!chatReady && (
-        <View style={styles.setupContainer}>
+        <ScrollView
+          style={styles.setupContainer}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          }
+        >
           {/* Step 1: Domain Selection */}
           <Text style={styles.stepLabel}>1. Choose a domain</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillRow}>
@@ -288,7 +316,7 @@ export default function AiScreen() {
               </View>
             </>
           )}
-        </View>
+        </ScrollView>
       )}
 
       {/* Chat Area */}
