@@ -1,8 +1,19 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Text, TextInput } from 'react-native';
 import { AuthProvider, useAuth } from '@/store/auth-context';
 import { getDomains } from '@/services/domains';
+
+// Disable OS-level font scaling globally so text renders at a consistent size
+// on all devices (prevents text clipping on Android/Samsung with large font settings).
+// @ts-expect-error - defaultProps is valid at runtime for RN core Text
+Text.defaultProps = Text.defaultProps || {};
+// @ts-expect-error
+Text.defaultProps.allowFontScaling = false;
+// @ts-expect-error
+TextInput.defaultProps = TextInput.defaultProps || {};
+// @ts-expect-error
+TextInput.defaultProps.allowFontScaling = false;
 
 function RootLayoutNav() {
   const { token, isLoading } = useAuth();
