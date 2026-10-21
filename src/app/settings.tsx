@@ -4,13 +4,17 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getProfile, logout } from '@/services/user';
+import { getProfile, updateProfile, logout } from '@/services/user';
 import { useAuth } from '@/store/auth-context';
 import { UserResponse } from '@/types/user';
 
@@ -21,6 +25,13 @@ export default function SettingsScreen() {
   const [profile, setProfile] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Edit state
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     loadProfile();
   }, []);
@@ -29,10 +40,49 @@ export default function SettingsScreen() {
     try {
       const data = await getProfile();
       setProfile(data);
+      setFirstName(data.firstName || '');
+      setLastName(data.lastName || '');
     } catch (error) {
       console.log('Profile error:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    // Password change requires both fields
+    const wantsPassword = newPassword.trim().length > 0;
+    if (wantsPassword) {
+      if (currentPassword.trim().length === 0) {
+        Alert.alert('Current password required', 'Enter your current password to set a new one.');
+        return;
+      }
+      if (newPassword.trim().length < 8) {
+        Alert.alert('Weak password', 'New password must be at least 8 characters.');
+        return;
+      }
+    }
+
+    setIsSaving(true);
+    try {
+      const updated = await updateProfile({
+        firstName: firstName.trim() || undefined,
+        lastName: lastName.trim() || undefined,
+        currentPassword: wantsPassword ? currentPassword : undefined,
+        newPassword: wantsPassword ? newPassword : undefined,
+      });
+      setProfile(updated);
+      setCurrentPassword('');
+      setNewPassword('');
+      Alert.alert('Saved', 'Your profile has been updated.');
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        'Could not update your profile.';
+      Alert.alert('Update failed', msg);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -54,73 +104,120 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const handleExport = (format: 'json' | 'csv') => {
-    Alert.alert('Export', `Export as ${format.toUpperCase()} coming soon`);
-  };
-
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#f8fafc" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color="#f8fafc" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Settings</Text>
+          <View style={{ width: 40 }} />
         </View>
-      ) : (
-        <View style={styles.content}>
-          {/* Account section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account</Text>
-            <View style={styles.card}>
-              <View style={styles.profileRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {profile?.firstName?.charAt(0).toUpperCase() || '?'}
-                  </Text>
-                </View>
-                <View style={styles.profileInfo}>
-                  <Text style={styles.profileName}>{profile?.firstName || 'User'}</Text>
-                  <Text style={styles.profileEmail}>{profile?.email || ''}</Text>
+
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3b82f6" />
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Account */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Account</Text>
+              <View style={styles.card}>
+                <View style={styles.profileRow}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {profile?.firstName?.charAt(0).toUpperCase() || '?'}
+                    </Text>
+                  </View>
+                  <View style={styles.profileInfo}>
+                    <Text style={styles.profileName}>{profile?.firstName || 'User'}</Text>
+                    <Text style={styles.profileEmail}>{profile?.email || ''}</Text>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
 
-          {/* Data section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Data</Text>
-            <View style={styles.card}>
-              <TouchableOpacity style={styles.row} onPress={() => handleExport('json')}>
-                <Ionicons name="download-outline" size={20} color="#94a3b8" />
-                <Text style={styles.rowText}>Export as JSON</Text>
-                <Ionicons name="chevron-forward" size={18} color="#64748b" />
-              </TouchableOpacity>
-              <View style={styles.divider} />
-              <TouchableOpacity style={styles.row} onPress={() => handleExport('csv')}>
-                <Ionicons name="document-text-outline" size={20} color="#94a3b8" />
-                <Text style={styles.rowText}>Export as CSV</Text>
-                <Ionicons name="chevron-forward" size={18} color="#64748b" />
-              </TouchableOpacity>
+            {/* Edit profile */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Edit Profile</Text>
+              <View style={styles.card}>
+                <Text style={styles.fieldLabel}>First name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="First name"
+                  placeholderTextColor="#64748b"
+                />
+                <Text style={styles.fieldLabel}>Last name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Last name"
+                  placeholderTextColor="#64748b"
+                />
+              </View>
             </View>
-          </View>
 
-          {/* Sign out */}
-          <View style={styles.section}>
+            {/* Change password */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Change Password</Text>
+              <View style={styles.card}>
+                <Text style={styles.fieldLabel}>Current password</Text>
+                <TextInput
+                  style={styles.input}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Current password"
+                  placeholderTextColor="#64748b"
+                  secureTextEntry
+                />
+                <Text style={styles.fieldLabel}>New password</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="New password (min 8 chars)"
+                  placeholderTextColor="#64748b"
+                  secureTextEntry
+                />
+                <Text style={styles.helperText}>Leave blank to keep your current password.</Text>
+              </View>
+            </View>
+
+            {/* Save */}
+            <TouchableOpacity
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+              onPress={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save changes</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Sign out */}
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={20} color="#ef4444" />
               <Text style={styles.logoutText}>Sign Out</Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      )}
-    </View>
+          </ScrollView>
+        )}
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -156,9 +253,10 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+    paddingBottom: 60,
   },
   section: {
-    marginBottom: 28,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 13,
@@ -173,12 +271,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#334155',
-    overflow: 'hidden',
+    padding: 16,
   },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
     gap: 14,
   },
   avatar: {
@@ -207,21 +304,42 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginTop: 2,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#94a3b8',
+    marginBottom: 6,
+    marginTop: 8,
   },
-  rowText: {
-    flex: 1,
+  input: {
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 15,
     color: '#f8fafc',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#334155',
-    marginLeft: 48,
+  helperText: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 10,
+  },
+  saveButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   logoutButton: {
     flexDirection: 'row',

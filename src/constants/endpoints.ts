@@ -19,7 +19,6 @@ export const ENDPOINTS = {
   },
   USERS: {
     PROFILE: '/users/profile',
-    EXPORT: '/users/export',
   },
   SESSIONS: {
     CREATE: '/session-logs',
