@@ -152,3 +152,12 @@ The only unwired account/user function was export. `UserController` exposes just
 
 ### Verify
 `tsc` clean on the edited files (`services/user.ts`, `settings.tsx`). Pre-existing unrelated errors remain in `setup-review.tsx` (dead linkedResource refs).
+
+## Session Log — Forgot Password Screen
+
+- **services/auth.ts:** added `forgotPassword(email)` and `resetPassword(email, code, newPassword)` hitting new `/auth/forgot-password` and `/auth/reset-password` endpoints.
+- **endpoints.ts:** added FORGOT_PASSWORD, RESET_PASSWORD.
+- **login.tsx:** added "Forgot password?" link below Sign In.
+- **(auth)/forgot-password.tsx (new):** two-step screen — step 1 enter email (sends 6-digit code via backend/Resend; shows neutral "if an account exists" message, no enumeration), step 2 enter code + new password (min 8) → resets and routes back to login. Includes resend-code.
+- Verified: tsc clean on new/edited files (pre-existing setup-review.tsx errors unrelated).
+- Backend: Google SSO is Phase 2 (not yet wired); this is email/password reset only.

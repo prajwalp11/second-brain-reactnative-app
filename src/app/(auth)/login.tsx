@@ -62,6 +62,9 @@ export default function LoginScreen() {
               placeholderTextColor="#64748b"
               keyboardType="email-address"
               autoCapitalize="none"
+              autoComplete="email"
+              textContentType="username"
+              autoCorrect={false}
             />
           </View>
 
@@ -75,6 +78,10 @@ export default function LoginScreen() {
                 placeholder="••••••••"
                 placeholderTextColor="#64748b"
                 secureTextEntry={!showPassword}
+                autoComplete="password"
+                textContentType="password"
+                autoCapitalize="none"
+                autoCorrect={false}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
                 <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94a3b8" />
@@ -90,6 +97,10 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
+            <Text style={styles.forgotText}>Forgot password?</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
@@ -185,6 +196,13 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 14,
     marginTop: 16,
+  },
+  forgotText: {
+    textAlign: 'center',
+    color: '#3b82f6',
+    fontSize: 14,
+    marginTop: 12,
+    fontWeight: '500',
   },
   linkBold: {
     color: '#3b82f6',
