@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, type ComponentRef } from 'react';
 import {
   View,
   Text,
@@ -70,7 +70,7 @@ function getDomainLabel(domain: DomainResponse): string {
 
 export default function AiScreen() {
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const params = useLocalSearchParams<{ domainId?: string; chatMode?: string }>();
 
   // ─── State ─────────────────────────────────────────────────────────────────

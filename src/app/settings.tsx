@@ -10,11 +10,13 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getProfile, updateProfile, logout } from '@/services/user';
+import { requestAccountDeletion, deleteAccount } from '@/services/auth';
 import { useAuth } from '@/store/auth-context';
 import { UserResponse } from '@/types/user';
 
@@ -31,6 +33,13 @@ export default function SettingsScreen() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Account deletion (OTP + password)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteCode, setDeleteCode] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteSending, setDeleteSending] = useState(false);
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -102,6 +111,58 @@ export default function SettingsScreen() {
         },
       },
     ]);
+  };
+
+  const startAccountDeletion = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently erases all your domains, logs, tasks and progress. This cannot be undone. We\'ll email you a code to confirm.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleteSending(true);
+            try {
+              await requestAccountDeletion();
+              setDeleteModalOpen(true);
+            } catch (error: any) {
+              const msg =
+                error?.response?.data?.message ||
+                error?.response?.data?.error ||
+                'Could not start account deletion. Try again later.';
+              Alert.alert('Failed', msg);
+            } finally {
+              setDeleteSending(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const confirmAccountDeletion = async () => {
+    if (deleteCode.trim().length === 0 || deletePassword.trim().length === 0) {
+      Alert.alert('Missing info', 'Enter both the code from your email and your password.');
+      return;
+    }
+    setDeleteConfirming(true);
+    try {
+      await deleteAccount(deleteCode.trim(), deletePassword);
+      setDeleteModalOpen(false);
+      Alert.alert('Account deleted', 'Your account and data have been deleted.', [
+        { text: 'OK', onPress: async () => { await signOut(); } },
+      ]);
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        'Could not delete your account.';
+      Alert.alert('Failed', msg);
+    } finally {
+      setDeleteConfirming(false);
+    }
   };
 
   return (
@@ -214,8 +275,78 @@ export default function SettingsScreen() {
               <Ionicons name="log-out-outline" size={20} color="#ef4444" />
               <Text style={styles.logoutText}>Sign Out</Text>
             </TouchableOpacity>
+
+            {/* Delete account — understated, below sign out */}
+            <TouchableOpacity
+              style={styles.deleteLink}
+              onPress={startAccountDeletion}
+              disabled={deleteSending}
+            >
+              {deleteSending ? (
+                <ActivityIndicator size="small" color="#64748b" />
+              ) : (
+                <Text style={styles.deleteLinkText}>Delete account</Text>
+              )}
+            </TouchableOpacity>
           </ScrollView>
         )}
+
+        {/* Delete-account confirmation (OTP + password) */}
+        <Modal
+          visible={deleteModalOpen}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setDeleteModalOpen(false)}
+        >
+          <KeyboardAvoidingView
+            style={styles.modalRoot}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Confirm deletion</Text>
+                <TouchableOpacity
+                  onPress={() => setDeleteModalOpen(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={24} color="#94a3b8" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.modalBody}>
+                Enter the 6-digit code we emailed you and your password. This permanently deletes
+                your account and all data.
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={deleteCode}
+                onChangeText={setDeleteCode}
+                placeholder="6-digit code"
+                placeholderTextColor="#64748b"
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+              <TextInput
+                style={[styles.input, { marginTop: 10 }]}
+                value={deletePassword}
+                onChangeText={setDeletePassword}
+                placeholder="Your password"
+                placeholderTextColor="#64748b"
+                secureTextEntry
+              />
+              <TouchableOpacity
+                style={[styles.deleteConfirmButton, deleteConfirming && styles.saveButtonDisabled]}
+                onPress={confirmAccountDeletion}
+                disabled={deleteConfirming}
+              >
+                {deleteConfirming ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.deleteConfirmText}>Delete my account</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       </View>
     </KeyboardAvoidingView>
   );
@@ -356,5 +487,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ef4444',
+  },
+  deleteLink: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    marginTop: 28,
+  },
+  deleteLinkText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748b',
+    textDecorationLine: 'underline',
+  },
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalSheet: {
+    backgroundColor: '#0f172a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderColor: '#334155',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  modalBody: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#dc2626',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  deleteConfirmText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
   },
 });

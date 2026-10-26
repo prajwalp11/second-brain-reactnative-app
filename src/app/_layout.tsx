@@ -26,9 +26,17 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const onSetupScreen = segments[1] === 'setup' || segments[1] === 'setup-review';
+    // Screens a logged-OUT user is allowed to be on.
+    const onPublicAuthScreen =
+      segments[1] === 'login' || segments[1] === 'register' ||
+      segments[1] === 'forgot-password' || segments[1] === 'verify-email';
 
-    if (!token && !inAuthGroup) {
-      router.replace('/(auth)/login');
+    if (!token) {
+      // Logged out: only login/register/forgot are allowed. Anything else (incl. the
+      // (auth) group's default initial route, or setup) must bounce to login.
+      if (!onPublicAuthScreen) {
+        router.replace('/(auth)/login');
+      }
     } else if (token && inAuthGroup && !onSetupScreen) {
       setCheckingDomains(true);
       getDomains()

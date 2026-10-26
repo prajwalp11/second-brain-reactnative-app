@@ -97,7 +97,7 @@ export interface InsightsResponse {
 /**
  * Fetch AI-generated insights (highlights, patterns, suggestions).
  */
-export async function getInsights(): Promise<InsightsResponse> {
-  const response = await api.get<InsightsResponse>(ENDPOINTS.INSIGHTS.GET);
+export async function getInsights(domainId: string): Promise<InsightsResponse> {
+  const response = await api.get<InsightsResponse>(ENDPOINTS.INSIGHTS.GET, { params: { domainId } });
   return response.data;
 }

@@ -161,3 +161,49 @@ The only unwired account/user function was export. `UserController` exposes just
 - **(auth)/forgot-password.tsx (new):** two-step screen — step 1 enter email (sends 6-digit code via backend/Resend; shows neutral "if an account exists" message, no enumeration), step 2 enter code + new password (min 8) → resets and routes back to login. Includes resend-code.
 - Verified: tsc clean on new/edited files (pre-existing setup-review.tsx errors unrelated).
 - Backend: Google SSO is Phase 2 (not yet wired); this is email/password reset only.
+
+## Session Log — Progress Task Redesign, Logs History, Setup Note
+
+- **Progress tab tasks redesigned (progress.tsx):** replaced raw-status grouping (To Do / In Progress / Done) with **Today** + **Upcoming** (open tasks = TODO+IN_PROGRESS, split by due date) + **Done collapsed** behind a tap. Fixes endless scroll AND the Home/Progress label inconsistency (both now treat open tasks as "upcoming", matching DashboardService). Removed dead `TASK_STATUS_ORDER`, `STATUS_CONFIG`, unused `TaskStatus` import.
+- **Logs history overlay (log.tsx):** each domain card in the grid has a history (clock) icon → opens a bottom-sheet Modal listing that domain's past sessions (date, duration, type, metrics, feel, notes) via new `getLogsForDomain(domainId)` (reads Spring Page `.content` from `GET /session-logs?domainId=`).
+- **Setup-review note (setup-review.tsx):** added an AI-chat tip above the done button — "tell the AI chat e.g. 'make gym 5x a week' and it updates your plan/schedule/tasks."
+- **Removed `aiInsight`** from `types/session.ts` (backend dropped the field).
+
+## Session Log — Email Verification (OTP) + SDK 58 upgrade
+
+- **SDK 54→57→58** upgrade. Fixed resulting type errors: tab icon color cast, ScrollView ref type in ai.tsx. tsc fully green.
+- **Auth gating fix (root _layout.tsx):** logged-out users are now forced to login — previously the (auth) group's initial route resolved to `setup` on expo-router v7, so logged-out users saw "select domains". Now only login/register/forgot-password/verify-email are allowed when no token.
+- **Email verification:** new `(auth)/verify-email.tsx` OTP screen (6-digit, resend). `register` routes here after signup; `login` catches 403 `EMAIL_NOT_VERIFIED` and routes here (so back-after-signup still forces verification). Services `verifyEmail`/`resendVerification`; endpoints added.
+- **Removed** the dead `setup-review.tsx` linkedResource block (+ WebBrowser import, resource styles) — app tsc is now 100% clean.
+
+## Session Log — UI/UX Batch (Home, Log flow, Progress, History overlay)
+
+### Tab auto-refresh
+- Added `useFocusEffect` (expo-router) to **index.tsx** (loadDashboard), **progress.tsx** (reload selected domain's metrics/PRs/milestones/insights), **domains.tsx** (loadDomains). `ai.tsx`/`log.tsx` already had focus refresh.
+
+### Home (index.tsx)
+- Replaced the flat "Tasks" dump with "Today's focus" + a collapsible **"Upcoming (N)"** section. Upcoming auto-expands only when there are no today tasks.
+
+### Domain cards (domains.tsx)
+- Long domain names now wrap to 2 lines instead of crowding the status badge (`cardTopLeft` flex, `domainName` flexShrink + `numberOfLines={2}`, badge flexShrink:0).
+
+### Log tab (log.tsx) — task-driven logging
+- Logging a session **no longer auto-completes tasks** (backend auto-sweep removed). Instead: after picking a domain, if it has **tasks due today**, a "What are you logging today?" step lists them + a "Something else" escape hatch. Picking a task pre-fills the session type and, on save, marks **only that task** DONE via `updateTaskStatus(id, 'DONE')`. No tasks today → straight to free-text logging.
+- Added "‹ Change" on the domain label to return to the grid; a single "View log history" button opens a domain picker → history.
+- **History/picker overlays rebuilt** (were non-scrolling + glitchy): backdrop is now an absolutely-positioned `Pressable` sibling *behind* the sheet (not wrapping it) so tap-to-close no longer fights the ScrollView; the ScrollView uses `flexShrink:1` within the 80%-max sheet so long histories scroll smoothly; scroll indicator on; bottom content padding for safe-area.
+
+### Progress tab (progress.tsx)
+- **Removed the Tasks section entirely** — it duplicated Home (same `getTasks({domainId})` API). Removed state, loader + 3 call sites, derived groups, the `TaskCard` component, dead imports (`getTasks`, `TaskResponse`, `WebBrowser`) and 17 dead task styles.
+- **Removed the manual "refresh insights" button** (+ handler, state, and the `refreshInsights` service fn). Insights now populate from the dashboard/scheduler only.
+
+### Verification
+- `npx tsc --noEmit` green after each change.
+
+## Session Log — Delete Account + Home avatar + Log history polish
+
+- **Delete account (Settings):** an understated "Delete account" text link below Sign Out → confirm alert → `requestAccountDeletion()` emails an OTP → modal to enter the 6-digit code + password → `deleteAccount(code, password)` → on success `signOut()`. Services `requestAccountDeletion`/`deleteAccount` + endpoints `REQUEST_ACCOUNT_DELETION`/`DELETE_ACCOUNT`.
+- **Home header:** replaced the settings gear with a circular avatar showing the user's first initial (fetched via `getProfile()` in parallel with the dashboard load; falls back to "?"). Still taps through to /settings.
+- **Log history overlay:** scrollbar hidden on both the history + domain-picker ScrollViews (`showsVerticalScrollIndicator={false}`).
+
+### Note on the ROUTE_NAMES_CHANGED dev warning
+Root `_layout.tsx` returns a loading View before mounting the <Stack>, so expo-router logs a dev-only "ROUTE_NAMES_CHANGED not handled by any navigator" warning during the loading→Stack transition. It's harmless (won't show in production). A fix would be to keep <Stack> always mounted and overlay the loader — NOT applied (left as-is per user).

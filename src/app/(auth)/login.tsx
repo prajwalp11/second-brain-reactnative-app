@@ -33,6 +33,13 @@ export default function LoginScreen() {
       const response = await loginUser({ email, password });
       await signIn(response.accessToken);
     } catch (error: any) {
+      // Unverified email → backend returns 403 EMAIL_NOT_VERIFIED + re-sends a code.
+      const status = error.response?.status;
+      const msg = error.response?.data?.message || error.response?.data?.error || '';
+      if (status === 403 && msg === 'EMAIL_NOT_VERIFIED') {
+        router.replace({ pathname: '/(auth)/verify-email', params: { email } });
+        return;
+      }
       const message = error.response?.data?.message || 'Login failed. Check your credentials.';
       Alert.alert('Error', message);
     } finally {

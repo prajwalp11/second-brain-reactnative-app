@@ -7,7 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getDomains } from '@/services/domains';
@@ -133,24 +133,6 @@ export default function SetupReviewScreen() {
             </View>
           </View>
         )}
-
-        {/* Linked resource */}
-        {domain.linkedResourceUrl && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Resource</Text>
-            <TouchableOpacity
-              style={styles.resourceCard}
-              onPress={() => WebBrowser.openBrowserAsync(domain.linkedResourceUrl!)}
-            >
-              <Text style={styles.resourceTitle}>
-                {domain.linkedResourceTitle || 'Linked Resource'}
-              </Text>
-              <Text style={styles.resourceUrl} numberOfLines={1}>
-                {domain.linkedResourceUrl}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </ScrollView>
 
       {/* Footer navigation */}
@@ -188,6 +170,13 @@ export default function SetupReviewScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        <View style={styles.aiTip}>
+          <Ionicons name="sparkles-outline" size={15} color="#a78bfa" />
+          <Text style={styles.aiTipText}>
+            You can edit your plan, schedule, and tasks anytime from the AI chat.
+          </Text>
+        </View>
 
         <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
           <Text style={styles.doneButtonText}>Looks good, let's go</Text>
@@ -315,25 +304,6 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
   },
 
-  // Resource
-  resourceCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  resourceTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#60a5fa',
-    marginBottom: 4,
-  },
-  resourceUrl: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-
   // Footer
   footer: {
     paddingHorizontal: 24,
@@ -387,5 +357,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  aiTip: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#1e1b4b',
+    borderWidth: 1,
+    borderColor: '#3730a3',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  aiTipText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#c4b5fd',
+    lineHeight: 17,
   },
 });

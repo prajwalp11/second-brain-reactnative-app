@@ -83,7 +83,7 @@ export default function DomainDetailModal() {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.headerIcon}>{getDomainIcon(domain.domainType)}</Text>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle}>{getDomainLabel(domain)}</Text>
               <Text style={styles.headerSub}>
                 {domain.currentStreak}d streak · Best: {domain.longestStreak}d
@@ -305,6 +305,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
+    marginRight: 12,
   },
   headerIcon: {
     fontSize: 36,

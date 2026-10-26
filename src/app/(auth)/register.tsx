@@ -42,8 +42,8 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       await registerUser({ firstName, lastName, email, password });
-      Alert.alert('Success', 'Account created! Please log in.', [
-        { text: 'OK', onPress: () => router.replace('/(auth)/login') },
+      Alert.alert('Verify your email', 'We sent you a 6-digit code to verify your account.', [
+        { text: 'OK', onPress: () => router.replace({ pathname: '/(auth)/verify-email', params: { email } }) },
       ]);
     } catch (error: any) {
       console.log('Registration error:', JSON.stringify(error.response?.data, null, 2));

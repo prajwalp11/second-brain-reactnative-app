@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,11 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { getDashboard } from '@/services/dashboard';
+import { getProfile } from '@/services/user';
 import { deleteTask } from '@/services/tasks';
 import {
   DashboardResponse,
@@ -30,12 +31,14 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [weeklyExpanded, setWeeklyExpanded] = useState(false);
-  const hasFetched = useRef(false);
+  const [upcomingExpanded, setUpcomingExpanded] = useState<boolean | null>(null);
+  const [firstName, setFirstName] = useState('');
 
   const loadDashboard = async () => {
     try {
-      const data = await getDashboard();
+      const [data, profile] = await Promise.all([getDashboard(), getProfile()]);
       setDashboard(data);
+      setFirstName(profile.firstName ?? '');
     } catch (error) {
       console.log('Dashboard error:', error);
     } finally {
@@ -44,12 +47,11 @@ export default function HomeScreen() {
     }
   };
 
-  useEffect(() => {
-    if (!hasFetched.current) {
-      hasFetched.current = true;
+  useFocusEffect(
+    useCallback(() => {
       loadDashboard();
-    }
-  }, []);
+    }, []),
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -98,7 +100,9 @@ export default function HomeScreen() {
             </Text>
           </View>
           <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsButton}>
-            <Ionicons name="settings-outline" size={22} color="#94a3b8" />
+            <Text style={styles.avatarInitial}>
+              {firstName ? firstName.charAt(0).toUpperCase() : '?'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -182,32 +186,36 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Tasks — sorted: pending (overdue) → today → upcoming */}
-        {dashboard.upcomingTasks && dashboard.upcomingTasks.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tasks</Text>
-            {[...dashboard.upcomingTasks]
-              .sort((a, b) => {
-                const now = new Date();
-                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-                const aDate = a.dueDate || '';
-                const bDate = b.dueDate || '';
-                // Overdue first, then today, then future
-                const aOrder = aDate < today ? 0 : aDate === today ? 1 : 2;
-                const bOrder = bDate < today ? 0 : bDate === today ? 1 : 2;
-                if (aOrder !== bOrder) return aOrder - bOrder;
-                return aDate.localeCompare(bDate);
-              })
-              .map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                domainName={task.domainId ? dashboard.streaks[task.domainId]?.domainName : undefined}
-                onUpdate={loadDashboard}
-              />
-            ))}
-          </View>
-        )}
+        {/* Tasks — upcoming (not due today), collapsible.
+            Auto-expanded only when there's nothing due today. */}
+        {(() => {
+          const now = new Date();
+          const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          const upcoming = (dashboard.upcomingTasks ?? []).filter((t) => (t.dueDate || '') !== today);
+          if (upcoming.length === 0) return null;
+          const expanded = upcomingExpanded ?? (dashboard.todayFocus.length === 0);
+          return (
+            <View style={styles.section}>
+              <TouchableOpacity
+                style={styles.collapsibleHeader}
+                onPress={() => setUpcomingExpanded(!expanded)}
+              >
+                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Upcoming ({upcoming.length})</Text>
+                <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color="#64748b" />
+              </TouchableOpacity>
+              {expanded && [...upcoming]
+                .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))
+                .map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    domainName={task.domainId ? dashboard.streaks[task.domainId]?.domainName : undefined}
+                    onUpdate={loadDashboard}
+                  />
+                ))}
+            </View>
+          );
+        })()}
 
       </ScrollView>
     </View>
@@ -464,6 +472,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#334155',
+  },
+  avatarInitial: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#e2e8f0',
   },
 
   // Section

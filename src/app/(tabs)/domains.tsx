@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getDomains, getMilestonesForDomain, MilestoneResponse } from '@/services/domains';
 import { DomainResponse } from '@/types/domain';
@@ -53,9 +53,11 @@ export default function DomainsScreen() {
     }
   };
 
-  useEffect(() => {
-    loadDomains();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadDomains();
+    }, []),
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -115,7 +117,7 @@ export default function DomainsScreen() {
               <View style={styles.cardTop}>
                 <View style={styles.cardTopLeft}>
                   <Text style={styles.domainIcon}>{getDomainIcon(domain.domainType)}</Text>
-                  <Text style={styles.domainName}>{getDomainLabel(domain)}</Text>
+                  <Text style={styles.domainName} numberOfLines={2}>{getDomainLabel(domain)}</Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: status.color + '20' }]}>
                   <View style={[styles.statusDot, { backgroundColor: status.color }]} />
@@ -214,6 +216,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    marginRight: 10,
   },
   domainIcon: {
     fontSize: 24,
@@ -222,6 +226,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#f8fafc',
+    flexShrink: 1,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -230,6 +235,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
     gap: 5,
+    flexShrink: 0,
   },
   statusDot: {
     width: 6,

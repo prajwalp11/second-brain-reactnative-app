@@ -20,3 +20,19 @@ export async function forgotPassword(email: string): Promise<{ status: string; m
 export async function resetPassword(email: string, code: string, newPassword: string): Promise<void> {
   await api.post(ENDPOINTS.AUTH.RESET_PASSWORD, { email, code, newPassword });
 }
+
+export async function verifyEmail(email: string, code: string): Promise<void> {
+  await api.post(ENDPOINTS.AUTH.VERIFY_EMAIL, { email, code });
+}
+
+export async function resendVerification(email: string): Promise<void> {
+  await api.post(ENDPOINTS.AUTH.RESEND_VERIFICATION, { email });
+}
+
+export async function requestAccountDeletion(): Promise<void> {
+  await api.post(ENDPOINTS.AUTH.REQUEST_ACCOUNT_DELETION, {});
+}
+
+export async function deleteAccount(code: string, password: string): Promise<void> {
+  await api.post(ENDPOINTS.AUTH.DELETE_ACCOUNT, { code, password });
+}

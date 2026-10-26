@@ -46,7 +46,6 @@ export interface SessionLogResponse {
   feelLabel: FeelLabel | null;
   notes: string | null;
   linkedReferenceUrl: string | null;
-  aiInsight: string | null;
   metrics: Record<string, number>;
   newPrs: PersonalRecordResponse[];
 }

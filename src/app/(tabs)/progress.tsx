@@ -10,14 +10,13 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BarChart } from 'react-native-chart-kit';
-import * as WebBrowser from 'expo-web-browser';
 import { getDomains } from '@/services/domains';
 import {
   getMetricProgress,
   getMilestonesForDomain,
-  getTasks,
   getMetricsForDomain,
   getInsights,
   MilestoneResponse,
@@ -26,7 +25,6 @@ import {
 } from '@/services/progress';
 import { getPRsForDomain } from '@/services/domains';
 import { DomainResponse } from '@/types/domain';
-import { TaskResponse, TaskStatus } from '@/types/dashboard';
 import { MetricDefinitionResponse, PersonalRecordResponse } from '@/types/session';
 import { DOMAIN_TYPES } from '@/constants/domains';
 
@@ -51,14 +49,6 @@ const COLORS = {
   progressBg: '#1e3a5f',
   prGold: '#fbbf24',
 } as const;
-
-const TASK_STATUS_ORDER: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'DONE'];
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
-  TODO: { label: 'To Do', color: COLORS.primary, icon: 'ellipse-outline' },
-  IN_PROGRESS: { label: 'In Progress', color: COLORS.warning, icon: 'time-outline' },
-  DONE: { label: 'Done', color: COLORS.success, icon: 'checkmark-circle' },
-};
 
 const MILESTONE_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   UPCOMING: { label: 'Upcoming', color: COLORS.textDim },
@@ -127,9 +117,6 @@ export default function ProgressScreen() {
 
   // Milestones
   const [milestones, setMilestones] = useState<MilestoneResponse[]>([]);
-
-  // Tasks
-  const [tasks, setTasks] = useState<TaskResponse[]>([]);
 
   // Insights
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
@@ -200,19 +187,9 @@ export default function ProgressScreen() {
     }
   };
 
-  const loadTasks = async (domainId: string) => {
+  const loadInsights = async (domainId: string) => {
     try {
-      const data = await getTasks({ domainId });
-      setTasks(data);
-    } catch (err) {
-      console.error('[Progress] Failed to load tasks:', err);
-      setTasks([]);
-    }
-  };
-
-  const loadInsights = async () => {
-    try {
-      const data = await getInsights();
+      const data = await getInsights(domainId);
       setInsights(data);
     } catch (err) {
       console.error('[Progress] Failed to load insights:', err);
@@ -226,12 +203,24 @@ export default function ProgressScreen() {
     loadInitial();
   }, []);
 
+  // Reload the selected domain's data each time the tab regains focus.
+  useFocusEffect(
+    useCallback(() => {
+      if (selectedDomainId) {
+        loadMetricsForDomain(selectedDomainId);
+        loadPRs(selectedDomainId);
+        loadMilestones(selectedDomainId);
+        loadInsights(selectedDomainId);
+      }
+    }, [selectedDomainId]),
+  );
+
   useEffect(() => {
     if (selectedDomainId) {
       loadMetricsForDomain(selectedDomainId);
       loadPRs(selectedDomainId);
       loadMilestones(selectedDomainId);
-      loadTasks(selectedDomainId);
+      loadInsights(selectedDomainId);
     }
   }, [selectedDomainId]);
 
@@ -243,7 +232,7 @@ export default function ProgressScreen() {
 
   const loadInitial = async () => {
     setIsLoading(true);
-    await Promise.all([loadDomains(), loadInsights()]);
+    await loadDomains();
     setIsLoading(false);
   };
 
@@ -255,7 +244,7 @@ export default function ProgressScreen() {
         loadMetricsForDomain(selectedDomainId),
         loadPRs(selectedDomainId),
         loadMilestones(selectedDomainId),
-        loadTasks(selectedDomainId),
+        loadInsights(selectedDomainId),
       ]);
       if (selectedMetricKey) {
         await loadChartData(selectedDomainId, selectedMetricKey);
@@ -269,14 +258,6 @@ export default function ProgressScreen() {
   const selectedDomain = domains.find((d) => d.id === selectedDomainId);
   const selectedMetric = metrics.find((m) => m.metricKey === selectedMetricKey);
   const trackableMetrics = metrics.filter((m) => m.isPR || m.isTrackedPerSession);
-
-  const tasksByStatus = TASK_STATUS_ORDER.reduce(
-    (acc, status) => {
-      acc[status] = tasks.filter((t) => t.status === status);
-      return acc;
-    },
-    {} as Record<TaskStatus, TaskResponse[]>,
-  );
 
   const activeMilestones = milestones.filter((m) => m.status !== 'DONE');
   const doneMilestones = milestones.filter((m) => m.status === 'DONE');
@@ -495,39 +476,7 @@ export default function ProgressScreen() {
         </View>
 
         {/* ─── Tasks Section ────────────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tasks</Text>
-
-          {tasks.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyCardText}>No tasks for this domain</Text>
-            </View>
-          ) : (
-            TASK_STATUS_ORDER.map((status) => {
-              const statusTasks = tasksByStatus[status];
-              if (statusTasks.length === 0) return null;
-              const config = STATUS_CONFIG[status];
-              return (
-                <View key={status} style={styles.taskGroup}>
-                  <View style={styles.taskGroupHeader}>
-                    <Ionicons name={config.icon as any} size={16} color={config.color} />
-                    <Text style={[styles.taskGroupLabel, { color: config.color }]}>
-                      {config.label}
-                    </Text>
-                    <View style={[styles.taskCountBadge, { backgroundColor: config.color + '20' }]}>
-                      <Text style={[styles.taskCountText, { color: config.color }]}>
-                        {statusTasks.length}
-                      </Text>
-                    </View>
-                  </View>
-                  {statusTasks.map((task) => (
-                    <TaskCard key={task.id} task={task} domains={domains} />
-                  ))}
-                </View>
-              );
-            })
-          )}
-        </View>
+        {/* Removed: tasks are shown on Home (same getTasks API) — redundant here. */}
 
         {/* Bottom spacer for tab bar */}
         <View style={{ height: 100 }} />
@@ -626,49 +575,6 @@ function MilestoneCard({ milestone }: { milestone: MilestoneResponse }) {
           <Text style={styles.milestoneDeadline}>Due {formatDate(milestone.deadline)}</Text>
         )}
       </View>
-    </View>
-  );
-}
-
-// ─── Task Card Component ─────────────────────────────────────────────────────
-
-function TaskCard({ task, domains }: { task: TaskResponse; domains: DomainResponse[] }) {
-  const domain = domains.find((d) => d.id === task.domainId);
-  const domainLabel = domain ? getDomainLabel(domain) : '';
-  const domainIcon = domain ? getDomainIcon(domain.domainType) : '';
-  const isDone = task.status === 'DONE';
-
-  return (
-    <View style={[styles.taskCard, isDone && styles.taskCardDone]}>
-      <View style={styles.taskCardContent}>
-        <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]} numberOfLines={2}>
-          {task.title}
-        </Text>
-        <View style={styles.taskMeta}>
-          {domain && (
-            <View style={styles.taskDomainTag}>
-              <Text style={styles.taskDomainIcon}>{domainIcon}</Text>
-              <Text style={styles.taskDomainText}>{domainLabel}</Text>
-            </View>
-          )}
-          {task.dueDate && (
-            <Text style={styles.taskDueDate}>{formatDate(task.dueDate)}</Text>
-          )}
-        </View>
-        {task.linkedResourceUrl && (
-          <TouchableOpacity
-            style={styles.taskResourceLink}
-            onPress={() => WebBrowser.openBrowserAsync(task.linkedResourceUrl!)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="play-circle" size={14} color={COLORS.primary} />
-            <Text style={styles.taskResourceText} numberOfLines={1}>
-              {task.linkedResourceTitle || 'Watch Resource'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      {isDone && <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />}
     </View>
   );
 }
@@ -939,99 +845,6 @@ const styles = StyleSheet.create({
   milestoneDeadline: {
     fontSize: 11,
     color: COLORS.textDim,
-  },
-
-  // ─── Tasks ─────────────────────────────────────────────────────
-  taskGroup: {
-    marginBottom: 16,
-  },
-  taskGroupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 6,
-  },
-  taskGroupLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  taskCountBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  taskCountText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  taskCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 12,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  taskCardDone: {
-    opacity: 0.6,
-  },
-  taskCardContent: {
-    flex: 1,
-  },
-  taskTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 6,
-  },
-  taskTitleDone: {
-    textDecorationLine: 'line-through',
-    color: COLORS.textMuted,
-  },
-  taskMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  taskDomainTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.border + '60',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    gap: 4,
-  },
-  taskDomainIcon: {
-    fontSize: 11,
-  },
-  taskDomainText: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontWeight: '500',
-  },
-  taskDueDate: {
-    fontSize: 11,
-    color: COLORS.textDim,
-  },
-  taskResourceLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 6,
-    backgroundColor: COLORS.progressBg,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  taskResourceText: {
-    fontSize: 11,
-    color: COLORS.primary,
-    fontWeight: '600',
-    maxWidth: 160,
   },
 
   // ─── Empty Card ────────────────────────────────────────────────

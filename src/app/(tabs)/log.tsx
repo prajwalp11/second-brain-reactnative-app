@@ -10,14 +10,19 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getDomains } from '@/services/domains';
-import { getMetricsForDomain, createSessionLog } from '@/services/sessions';
+import { getMetricsForDomain, createSessionLog, getLogsForDomain } from '@/services/sessions';
+import { getTasks } from '@/services/progress';
+import { updateTaskStatus } from '@/services/tasks';
 import { DomainResponse } from '@/types/domain';
-import { MetricDefinitionResponse, FeelLabel, CreateSessionLogRequest } from '@/types/session';
+import { TaskResponse } from '@/types/dashboard';
+import { MetricDefinitionResponse, FeelLabel, CreateSessionLogRequest, SessionLogResponse } from '@/types/session';
 import { DOMAIN_TYPES } from '@/constants/domains';
 
 const FEEL_OPTIONS: { label: string; value: FeelLabel; icon: string }[] = [
@@ -62,6 +67,41 @@ export default function LogScreen() {
   const [notes, setNotes] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
 
+  // Task-driven logging: today's open tasks for the selected domain + which one is being logged.
+  const [todaysTasks, setTodaysTasks] = useState<TaskResponse[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [taskChosen, setTaskChosen] = useState(false); // true once user picks a task OR "something else"
+
+  // History overlay
+  const [historyDomain, setHistoryDomain] = useState<DomainResponse | null>(null);
+  const [historyLogs, setHistoryLogs] = useState<SessionLogResponse[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPickerOpen, setHistoryPickerOpen] = useState(false);
+
+  const pickHistoryDomain = (domain: DomainResponse) => {
+    setHistoryPickerOpen(false);
+    openHistory(domain);
+  };
+
+  const openHistory = async (domain: DomainResponse) => {
+    setHistoryDomain(domain);
+    setHistoryLoading(true);
+    try {
+      const logs = await getLogsForDomain(domain.id);
+      setHistoryLogs(logs);
+    } catch (error) {
+      console.log('Failed to load history:', error);
+      setHistoryLogs([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const closeHistory = () => {
+    setHistoryDomain(null);
+    setHistoryLogs([]);
+  };
+
   // Reload domains every time the tab is focused
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -86,6 +126,9 @@ export default function LogScreen() {
     if (!selectedDomainId) {
       setMetrics([]);
       setMetricValues({});
+      setTodaysTasks([]);
+      setSelectedTaskId(null);
+      setTaskChosen(false);
       return;
     }
 
@@ -104,6 +147,27 @@ export default function LogScreen() {
       }
     }
     loadMetrics();
+
+    // Fetch today's open tasks for this domain to offer the "which task?" step.
+    async function loadTodaysTasks() {
+      try {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const all = await getTasks({ domainId: selectedDomainId! });
+        const todays = all.filter(
+          (t) => t.dueDate === today && (t.status === 'TODO' || t.status === 'IN_PROGRESS'),
+        );
+        setTodaysTasks(todays);
+        setSelectedTaskId(null);
+        // If there are no tasks today, skip straight to free-text logging.
+        setTaskChosen(todays.length === 0);
+      } catch (error) {
+        console.log('Failed to load today\'s tasks:', error);
+        setTodaysTasks([]);
+        setTaskChosen(true);
+      }
+    }
+    loadTodaysTasks();
   }, [selectedDomainId]);
 
   const getDomainIcon = (domainType: string): string => {
@@ -138,6 +202,9 @@ export default function LogScreen() {
     setSelectedFeel(null);
     setNotes('');
     setDurationMinutes('');
+    setTodaysTasks([]);
+    setSelectedTaskId(null);
+    setTaskChosen(false);
   };
 
   const handleSave = async () => {
@@ -195,6 +262,15 @@ export default function LogScreen() {
     try {
       const response = await createSessionLog(request);
 
+      // If the user logged against a specific task, mark THAT task done (nothing else).
+      if (selectedTaskId) {
+        try {
+          await updateTaskStatus(selectedTaskId, 'DONE');
+        } catch (e) {
+          console.log('Failed to complete task:', e);
+        }
+      }
+
       // Show PR celebration if any records were broken
       if (response.newPrs && response.newPrs.length > 0) {
         const prLines = response.newPrs.map((pr) => {
@@ -243,20 +319,40 @@ export default function LogScreen() {
 
         {/* Domain selector */}
         <View style={styles.section}>
-          <Text style={styles.label}>Domain</Text>
+          <View style={styles.domainLabelRow}>
+            <Text style={styles.label}>Domain</Text>
+            {selectedDomainId && (
+              <TouchableOpacity
+                style={styles.changeDomainBtn}
+                onPress={resetForm}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="chevron-back" size={16} color="#3b82f6" />
+                <Text style={styles.changeDomainText}>Change</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           {!selectedDomainId ? (
-            <View style={styles.domainGrid}>
-              {domains.map((domain) => (
-                <TouchableOpacity
-                  key={domain.id}
-                  style={styles.domainGridCard}
-                  onPress={() => setSelectedDomainId(domain.id)}
-                >
-                  <Text style={styles.domainGridIcon}>{getDomainIcon(domain.domainType)}</Text>
-                  <Text style={styles.domainGridLabel}>{getDomainLabel(domain)}</Text>
+            <>
+              <View style={styles.domainGrid}>
+                {domains.map((domain) => (
+                  <TouchableOpacity
+                    key={domain.id}
+                    style={styles.domainGridCard}
+                    onPress={() => setSelectedDomainId(domain.id)}
+                  >
+                    <Text style={styles.domainGridIcon}>{getDomainIcon(domain.domainType)}</Text>
+                    <Text style={styles.domainGridLabel}>{getDomainLabel(domain)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {domains.length > 0 && (
+                <TouchableOpacity style={styles.historyButton} onPress={() => setHistoryPickerOpen(true)}>
+                  <Ionicons name="time-outline" size={18} color="#94a3b8" />
+                  <Text style={styles.historyButtonText}>View log history</Text>
                 </TouchableOpacity>
-              ))}
-            </View>
+              )}
+            </>
           ) : (
             <ScrollView
               horizontal
@@ -282,8 +378,39 @@ export default function LogScreen() {
           )}
         </View>
 
+        {/* Which task are you logging? — only when a domain is picked, tasks exist today, and not yet chosen */}
+        {selectedDomainId && !taskChosen && todaysTasks.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.label}>What are you logging today?</Text>
+            {todaysTasks.map((task) => (
+              <TouchableOpacity
+                key={task.id}
+                style={styles.taskChoice}
+                onPress={() => {
+                  setSelectedTaskId(task.id);
+                  if (task.title) setSessionType(task.title);
+                  setTaskChosen(true);
+                }}
+              >
+                <Ionicons name="ellipse-outline" size={18} color="#3b82f6" />
+                <Text style={styles.taskChoiceText}>{task.title}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={[styles.taskChoice, styles.taskChoiceOther]}
+              onPress={() => {
+                setSelectedTaskId(null);
+                setTaskChosen(true);
+              }}
+            >
+              <Ionicons name="add-circle-outline" size={18} color="#94a3b8" />
+              <Text style={[styles.taskChoiceText, { color: '#94a3b8' }]}>Something else</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Session type */}
-        {selectedDomainId && (
+        {selectedDomainId && taskChosen && (
           <View style={styles.section}>
             <Text style={styles.label}>What kind?</Text>
             <TextInput
@@ -301,7 +428,7 @@ export default function LogScreen() {
         )}
 
         {/* Duration */}
-        {selectedDomainId && (
+        {selectedDomainId && taskChosen && (
           <View style={styles.section}>
             <Text style={styles.label}>Duration (minutes)</Text>
             <TextInput
@@ -316,7 +443,7 @@ export default function LogScreen() {
         )}
 
         {/* Dynamic metric inputs */}
-        {selectedDomainId && (
+        {selectedDomainId && taskChosen && (
           <View style={styles.section}>
             <Text style={styles.label}>Metrics</Text>
             {isLoadingMetrics ? (
@@ -348,7 +475,7 @@ export default function LogScreen() {
         )}
 
         {/* Feel selector */}
-        {selectedDomainId && (
+        {selectedDomainId && taskChosen && (
           <View style={styles.section}>
             <Text style={styles.label}>How did it feel?</Text>
             <View style={styles.feelRow}>
@@ -372,7 +499,7 @@ export default function LogScreen() {
         )}
 
         {/* Notes */}
-        {selectedDomainId && (
+        {selectedDomainId && taskChosen && (
           <View style={styles.section}>
             <Text style={styles.label}>Notes</Text>
             <TextInput
@@ -389,7 +516,7 @@ export default function LogScreen() {
         )}
 
         {/* Save button */}
-        {selectedDomainId && (
+        {selectedDomainId && taskChosen && (
           <TouchableOpacity
             style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
             onPress={handleSave}
@@ -406,6 +533,102 @@ export default function LogScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {/* ─── Log history overlay ─────────────────────────────── */}
+      <Modal
+        visible={historyDomain !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={closeHistory}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.modalBackdrop} onPress={closeHistory} />
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {historyDomain ? getDomainLabel(historyDomain) : ''} history
+              </Text>
+              <TouchableOpacity onPress={closeHistory} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={24} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            {historyLoading ? (
+              <ActivityIndicator size="large" color="#3b82f6" style={{ marginTop: 40 }} />
+            ) : historyLogs.length === 0 ? (
+              <Text style={styles.historyEmpty}>No sessions logged yet.</Text>
+            ) : (
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {historyLogs.map((log) => (
+                  <View key={log.id} style={styles.historyRow}>
+                    <View style={styles.historyRowTop}>
+                      <Text style={styles.historyDate}>{log.logDate}</Text>
+                      {log.durationMinutes != null && (
+                        <Text style={styles.historyDuration}>{log.durationMinutes} min</Text>
+                      )}
+                    </View>
+                    {log.sessionType ? (
+                      <Text style={styles.historyType}>{log.sessionType}</Text>
+                    ) : null}
+                    {log.metrics && Object.keys(log.metrics).length > 0 && (
+                      <Text style={styles.historyMetrics}>
+                        {Object.entries(log.metrics)
+                          .map(([k, v]) => `${k}: ${v}`)
+                          .join('  ·  ')}
+                      </Text>
+                    )}
+                    {log.feelLabel ? (
+                      <Text style={styles.historyFeel}>Felt: {log.feelLabel}</Text>
+                    ) : null}
+                    {log.notes ? <Text style={styles.historyNotes}>{log.notes}</Text> : null}
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── History domain picker ─────────────────────────────── */}
+      <Modal
+        visible={historyPickerOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setHistoryPickerOpen(false)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setHistoryPickerOpen(false)} />
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Pick a domain</Text>
+              <TouchableOpacity onPress={() => setHistoryPickerOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={24} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {domains.map((domain) => (
+                <TouchableOpacity
+                  key={domain.id}
+                  style={styles.pickerRow}
+                  onPress={() => pickHistoryDomain(domain)}
+                >
+                  <Text style={styles.pickerIcon}>{getDomainIcon(domain.domainType)}</Text>
+                  <Text style={styles.pickerLabel}>{getDomainLabel(domain)}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#64748b" style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -471,6 +694,166 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderWidth: 1,
     borderColor: '#334155',
+  },
+  historyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#1e293b',
+  },
+  historyButtonText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+  },
+  pickerIcon: {
+    fontSize: 22,
+  },
+  pickerLabel: {
+    fontSize: 15,
+    color: '#f8fafc',
+    fontWeight: '500',
+  },
+  domainLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  changeDomainBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginBottom: 10,
+  },
+  changeDomainText: {
+    color: '#3b82f6',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  taskChoice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+  taskChoiceText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#f8fafc',
+    fontWeight: '500',
+  },
+  taskChoiceOther: {
+    borderStyle: 'dashed',
+  },
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalSheet: {
+    backgroundColor: '#0f172a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    maxHeight: '80%',
+    borderTopWidth: 1,
+    borderColor: '#334155',
+  },
+  modalScroll: {
+    flexShrink: 1,
+  },
+  modalScrollContent: {
+    paddingBottom: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  historyEmpty: {
+    color: '#64748b',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 40,
+    marginBottom: 20,
+  },
+  historyRow: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    padding: 14,
+    marginBottom: 10,
+  },
+  historyRowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyDate: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#f8fafc',
+  },
+  historyDuration: {
+    fontSize: 13,
+    color: '#3b82f6',
+    fontWeight: '600',
+  },
+  historyType: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginTop: 4,
+  },
+  historyMetrics: {
+    fontSize: 13,
+    color: '#e2e8f0',
+    marginTop: 6,
+  },
+  historyFeel: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 6,
+  },
+  historyNotes: {
+    fontSize: 13,
+    color: '#cbd5e1',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   domainGridIcon: {
     fontSize: 28,

@@ -31,7 +31,7 @@ export default function TabsLayout() {
         options={{
           title: 'Home',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -39,7 +39,7 @@ export default function TabsLayout() {
         options={{
           title: 'Domains',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -47,7 +47,7 @@ export default function TabsLayout() {
         options={{
           title: 'Log',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -55,7 +55,7 @@ export default function TabsLayout() {
         options={{
           title: 'Progress',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="trending-up-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="trending-up-outline" size={size} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -63,7 +63,7 @@ export default function TabsLayout() {
         options={{
           title: 'AI',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="sparkles-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="sparkles-outline" size={size} color={color as string} />,
         }}
       />
     </Tabs>
