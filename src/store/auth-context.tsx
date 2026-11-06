@@ -5,7 +5,7 @@ import { setOnTokenExpired } from '@/services/api';
 interface AuthContextType {
   token: string | null;
   isLoading: boolean;
-  signIn: (token: string) => Promise<void>;
+  signIn: (accessToken: string, refreshToken: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -34,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await SecureStore.deleteItemAsync('accessToken');
+    await SecureStore.deleteItemAsync('refreshToken');
     setToken(null);
   };
 
@@ -44,9 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const signIn = async (newToken: string) => {
-    await SecureStore.setItemAsync('accessToken', newToken);
-    setToken(newToken);
+  const signIn = async (accessToken: string, refreshToken: string) => {
+    await SecureStore.setItemAsync('accessToken', accessToken);
+    await SecureStore.setItemAsync('refreshToken', refreshToken);
+    setToken(accessToken);
   };
 
   return (

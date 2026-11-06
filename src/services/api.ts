@@ -26,12 +26,57 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// If we get a 401, the token is expired/invalid — force logout
+// ─── Transparent access-token refresh on 401 ────────────────────────────────
+// A bare axios instance (no interceptors) so the refresh call itself can't recurse.
+const refreshClient = axios.create({ baseURL: API_BASE_URL, timeout: 30000 });
+
+// De-dupe concurrent refreshes: the first 401 refreshes; others await the same promise.
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = await SecureStore.getItemAsync('refreshToken');
+  if (!refreshToken) return null;
+  try {
+    const { data } = await refreshClient.post('/auth/refresh', { refreshToken });
+    await SecureStore.setItemAsync('accessToken', data.accessToken);
+    await SecureStore.setItemAsync('refreshToken', data.refreshToken);
+    return data.accessToken as string;
+  } catch {
+    return null; // refresh token expired/revoked → caller logs out
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    const original = error.config;
+
+    // Only try to refresh once per request, and never for the refresh endpoint itself.
+    if (
+      error.response?.status === 401 &&
+      original &&
+      !original._retried &&
+      !original.url?.includes('/auth/refresh')
+    ) {
+      original._retried = true;
+
+      // Share a single in-flight refresh across concurrent 401s.
+      if (!refreshPromise) {
+        refreshPromise = refreshAccessToken().finally(() => {
+          refreshPromise = null;
+        });
+      }
+      const newAccessToken = await refreshPromise;
+
+      if (newAccessToken) {
+        original.headers = original.headers ?? {};
+        original.headers.Authorization = `Bearer ${newAccessToken}`;
+        return api(original); // replay the original request with the fresh token
+      }
+
+      // Refresh failed — clear tokens and force logout.
       await SecureStore.deleteItemAsync('accessToken');
+      await SecureStore.deleteItemAsync('refreshToken');
       if (onTokenExpired) {
         onTokenExpired();
       }

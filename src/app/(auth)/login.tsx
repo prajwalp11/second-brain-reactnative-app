@@ -31,7 +31,7 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       const response = await loginUser({ email, password });
-      await signIn(response.accessToken);
+      await signIn(response.accessToken, response.refreshToken);
     } catch (error: any) {
       // Unverified email → backend returns 403 EMAIL_NOT_VERIFIED + re-sends a code.
       const status = error.response?.status;
