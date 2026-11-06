@@ -207,3 +207,10 @@ The only unwired account/user function was export. `UserController` exposes just
 
 ### Note on the ROUTE_NAMES_CHANGED dev warning
 Root `_layout.tsx` returns a loading View before mounting the <Stack>, so expo-router logs a dev-only "ROUTE_NAMES_CHANGED not handled by any navigator" warning during the loading→Stack transition. It's harmless (won't show in production). A fix would be to keep <Stack> always mounted and overlay the loader — NOT applied (left as-is per user).
+
+## Session Log — Refresh Tokens (app)
+
+- **AuthResponse** type gains `refreshToken`. `signIn(accessToken, refreshToken)` stores BOTH in SecureStore; `signOut` clears both.
+- **api.ts** 401 interceptor rewritten: on 401 it calls `/auth/refresh` with the stored refresh token (via a separate bare axios client to avoid interceptor recursion), stores the rotated access+refresh pair, and **replays the original request**. Concurrent 401s share one in-flight refresh (no stampede); guarded against retry loops and against refreshing the refresh endpoint itself. Only if refresh fails does it clear tokens + trigger logout.
+- login.tsx passes both tokens to `signIn`. verify-email still just routes to login (login handles token storage).
+- Net: access token 1h, refresh 60d rotating, single active session (a new login elsewhere invalidates this device at next refresh). Users stay logged in as long as they open the app within any 60-day window.
