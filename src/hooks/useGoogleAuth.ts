@@ -1,42 +1,47 @@
 import { useEffect, useState } from 'react';
-import {
-  GoogleSignin,
-  statusCodes,
-  type SignInResponse,
-} from '@react-native-google-signin/google-signin';
 import { GOOGLE_SSO_WEB_CLIENT_ID } from '@/constants/config';
+import { getGoogleSignin, isGoogleSigninAvailable } from '@/services/googleSignin';
 
 /**
- * Google Sign-In via the native Google Sign-In SDK (@react-native-google-signin/google-signin).
+ * Google Sign-In via the native Google Sign-In SDK (@react-native-google-signin/google-signin),
+ * resolved lazily so the app still runs in Expo Go (where the native module is absent).
  *
- * This uses the native account picker — no browser, no redirect URI. On Android the sign-in is
- * performed via the app's package name + SHA-1 (the Android OAuth client). The returned id_token
- * carries the WEB client as its audience (because webClientId is passed to configure), which the
- * backend (/auth/google) verifies — so GOOGLE_SSO_WEB_CLIENT_ID must be in the backend's
- * GOOGLE_SSO_CLIENT_ID audience list.
+ * Native account picker — no browser, no redirect URI. On Android the sign-in is performed via
+ * the app's package + SHA-1 (Android OAuth client). The returned id_token's audience is the WEB
+ * client (webClientId), which the backend (/auth/google) verifies — so GOOGLE_SSO_WEB_CLIENT_ID
+ * must be in the backend's GOOGLE_SSO_CLIENT_ID audience list.
  *
- * Note: this is a native module and only works in a dev/preview/production build (not Expo Go).
+ * Only works in a dev/preview/production build. In Expo Go, `signInWithGoogle` reports a clear
+ * message instead of crashing.
  */
 export function useGoogleAuth() {
   const [idToken, setIdToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Configure the SDK once with the web client id (used as the id_token audience).
+  // Configure the SDK once (only when the native module is present).
   useEffect(() => {
-    GoogleSignin.configure({
+    const mod = getGoogleSignin();
+    if (!mod) return;
+    mod.GoogleSignin.configure({
       webClientId: GOOGLE_SSO_WEB_CLIENT_ID || undefined,
       scopes: ['openid', 'email', 'profile'],
     });
   }, []);
 
   const signInWithGoogle = async () => {
+    const mod = getGoogleSignin();
+    if (!mod) {
+      setError('Google sign-in needs a development or production build (not available in Expo Go).');
+      return;
+    }
     if (!GOOGLE_SSO_WEB_CLIENT_ID) {
       setError('Google sign-in is not configured (missing web client ID).');
       return;
     }
+    const { GoogleSignin, statusCodes } = mod;
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const response: SignInResponse = await GoogleSignin.signIn();
+      const response = await GoogleSignin.signIn();
 
       if (response.type === 'cancelled') {
         // User dismissed the account picker — not an error to surface.
@@ -50,7 +55,6 @@ export function useGoogleAuth() {
         setError('No ID token returned from Google.');
       }
     } catch (e: any) {
-      // Map the common, actionable error codes; fall back to a generic message.
       if (e?.code === statusCodes.SIGN_IN_CANCELLED) {
         return;
       }
@@ -65,8 +69,8 @@ export function useGoogleAuth() {
   return {
     idToken,
     error,
-    // Native sign-in is always available to attempt; errors are reported via `error`.
-    ready: true,
+    // Reflects whether native Google sign-in can run here (false in Expo Go).
+    ready: isGoogleSigninAvailable(),
     signInWithGoogle,
     reset: () => {
       setIdToken(null);

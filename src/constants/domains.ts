@@ -9,11 +9,22 @@
     { type: 'SLEEP', label: 'Sleep', icon: '😴' },
     { type: 'SWIMMING', label: 'Swimming', icon: '🏊' },
     { type: 'MEDITATION', label: 'Meditation', icon: '🧘' },
-    { type: 'CUSTOM', label: 'Custom', icon: '✏️' },
+    { type: 'CUSTOM', label: 'Custom', icon: '➕' },
   ] as const;
 
   export const SKILL_LEVELS = [
     { value: 'BEGINNER', label: 'Beginner' },
     { value: 'INTERMEDIATE', label: 'Intermediate' },
     { value: 'ADVANCED', label: 'Advanced' },
+  ] as const;
+
+  // Training-day chips. Values are the 3-letter day names the backend/AI expect (e.g. "Mon,Wed,Fri").
+  export const WEEKDAYS = [
+    { value: 'Mon', label: 'Mon' },
+    { value: 'Tue', label: 'Tue' },
+    { value: 'Wed', label: 'Wed' },
+    { value: 'Thu', label: 'Thu' },
+    { value: 'Fri', label: 'Fri' },
+    { value: 'Sat', label: 'Sat' },
+    { value: 'Sun', label: 'Sun' },
   ] as const;

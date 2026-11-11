@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { createDomain } from '@/services/domains';
-import { DOMAIN_TYPES, SKILL_LEVELS } from '@/constants/domains';
+import { DOMAIN_TYPES, SKILL_LEVELS, WEEKDAYS } from '@/constants/domains';
 import { DomainType, SkillLevel } from '@/types/domain';
 
 const PRESETS = DOMAIN_TYPES;
@@ -26,13 +26,26 @@ export default function AddDomainModal() {
   const [customName, setCustomName] = useState('');
   const [context, setContext] = useState('');
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
+  const [scheduleDays, setScheduleDays] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
 
   const isCustom = selectedType === 'CUSTOM';
-  const canCreate = selectedType && skillLevel && (!isCustom || customName.trim());
+  const canCreate = selectedType && skillLevel && scheduleDays.length > 0 && (!isCustom || customName.trim());
+
+  // Toggle a training day, keeping canonical Mon→Sun order.
+  const toggleDay = (day: string) => {
+    setScheduleDays((prev) => {
+      const next = prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day];
+      return WEEKDAYS.map((w) => w.value).filter((v) => next.includes(v));
+    });
+  };
 
   const handleCreate = async () => {
     if (!selectedType || !skillLevel) return;
+    if (scheduleDays.length === 0) {
+      Alert.alert('Pick training days', 'Please choose at least one training day.');
+      return;
+    }
 
     setIsCreating(true);
     try {
@@ -41,6 +54,7 @@ export default function AddDomainModal() {
         customName: isCustom ? customName.trim() : undefined,
         context: context.trim() || undefined,
         skillLevel,
+        weeklySchedule: scheduleDays.join(','),
       });
       Alert.alert(
         '🎉 Domain created!',
@@ -139,6 +153,29 @@ export default function AddDomainModal() {
                   >
                     <Text style={[styles.skillText, isSelected && styles.skillTextSelected]}>
                       {level.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* Training days */}
+        {selectedType && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Training days</Text>
+            <View style={styles.dayRow}>
+              {WEEKDAYS.map((day) => {
+                const isSelected = scheduleDays.includes(day.value);
+                return (
+                  <TouchableOpacity
+                    key={day.value}
+                    style={[styles.dayChip, isSelected && styles.dayChipSelected]}
+                    onPress={() => toggleDay(day.value)}
+                  >
+                    <Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>
+                      {day.label}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -304,6 +341,33 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
   },
   skillTextSelected: {
+    color: '#3b82f6',
+  },
+  dayRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dayChip: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+    minWidth: 46,
+    alignItems: 'center',
+  },
+  dayChipSelected: {
+    backgroundColor: '#1e3a5f',
+    borderColor: '#3b82f6',
+  },
+  dayChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  dayChipTextSelected: {
     color: '#3b82f6',
   },
 

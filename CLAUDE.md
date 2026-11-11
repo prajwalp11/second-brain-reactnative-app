@@ -251,3 +251,31 @@ Google Sign-In SDK, which has **no browser and no redirect URI**.
   (`eas credentials -p android`); add it to the Android client. A SHA-1 mismatch surfaces as
   `DEVELOPER_ERROR` at sign-in. For Play Store, also add Google Play App Signing's SHA-1.
 - `expo-auth-session` remains in package.json but is no longer used for Google sign-in (safe to remove later).
+
+
+## Session Log — Setup schedule chips + CUSTOM icon + Expo Go lazy-load (CURRENT)
+
+### 1. User picks the weekly schedule on setup (day chips)
+Schedule is now a user input (was AI-only). Per-domain **day-of-week chips** (Mon–Sun) on both
+domain-creation entry points; the chosen days are sent to the backend as a fixed constraint the AI plans
+around. Later changes happen via AI chat (setup-review stays read-only).
+- `constants/domains.ts`: added `WEEKDAYS` (Mon–Sun, 3-letter values matching the backend format).
+- `types/domain.ts`: `CreateDomainRequest.weeklySchedule?` (comma-separated, e.g. "Mon,Wed,Fri").
+- `app/(auth)/setup.tsx`: per-domain schedule state + chips; requires ≥1 day; days kept in canonical
+  Mon→Sun order; sends `weeklySchedule` in `createDomain`.
+- `app/add-domain.tsx`: same chips + validation + payload for adding a single domain later.
+
+### 2. CUSTOM domain icon: pencil → plus
+`constants/domains.ts`: CUSTOM `icon` `✏️` → `➕` (shows on the setup grid and add-domain grid).
+
+### 3. Expo Go lazy-load for the native Google SDK
+`@react-native-google-signin/google-signin` is a native module — importing it at module top crashed the
+whole app in Expo Go (`TurboModuleRegistry.getEnforcing('RNGoogleSignin')`). To allow quick UI testing in
+Expo Go without a dev build:
+- New `services/googleSignin.ts`: detects Expo Go (`Constants.appOwnership === 'expo'`) and lazily
+  `require()`s the SDK, guarded (never throws). Exposes `getGoogleSignin()` / `isGoogleSigninAvailable()`.
+- `store/auth-context.tsx` + `hooks/useGoogleAuth.ts`: no top-level native import; resolve via the helper.
+  In Expo Go `ready` is false and tapping shows "Google sign-in needs a development or production build".
+  In any real build it works exactly as before — no env flag, behavior keys off whether the module exists.
+- Result: `npx expo start` (Expo Go) boots fine for UI work; Google sign-in still requires a dev/preview/
+  prod build.

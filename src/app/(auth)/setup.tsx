@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { createDomain } from '@/services/domains';
-import { DOMAIN_TYPES, SKILL_LEVELS } from '@/constants/domains';
+import { DOMAIN_TYPES, SKILL_LEVELS, WEEKDAYS } from '@/constants/domains';
 import { DomainType, SkillLevel } from '@/types/domain';
 
 // Placeholder text for the optional specify input per domain
@@ -35,16 +35,20 @@ export default function SetupScreen() {
   const [selectedDomains, setSelectedDomains] = useState<DomainType[]>([]);
   const [skillLevels, setSkillLevels] = useState<Record<string, SkillLevel>>({});
   const [customNames, setCustomNames] = useState<Record<string, string>>({});
+  // Per-domain chosen training days (Set of 3-letter day values).
+  const [schedules, setSchedules] = useState<Record<string, string[]>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const toggleDomain = (type: DomainType) => {
     setSelectedDomains((prev) => {
       if (prev.includes(type)) {
-        // Remove domain, its skill level, and custom name
+        // Remove domain, its skill level, custom name, and schedule
         const { [type]: _skill, ...restSkills } = skillLevels;
         const { [type]: _name, ...restNames } = customNames;
+        const { [type]: _sched, ...restScheds } = schedules;
         setSkillLevels(restSkills);
         setCustomNames(restNames);
+        setSchedules(restScheds);
         return prev.filter((d) => d !== type);
       }
       return [...prev, type];
@@ -57,6 +61,18 @@ export default function SetupScreen() {
 
   const setCustomNameForDomain = (domain: DomainType, name: string) => {
     setCustomNames((prev) => ({ ...prev, [domain]: name }));
+  };
+
+  // Toggle a training day for a domain, keeping the list in canonical Mon→Sun order.
+  const toggleDayForDomain = (domain: DomainType, day: string) => {
+    setSchedules((prev) => {
+      const current = prev[domain] ?? [];
+      const next = current.includes(day)
+        ? current.filter((d) => d !== day)
+        : [...current, day];
+      const ordered = WEEKDAYS.map((w) => w.value).filter((v) => next.includes(v));
+      return { ...prev, [domain]: ordered };
+    });
   };
 
   const handleContinue = async () => {
@@ -78,6 +94,14 @@ export default function SetupScreen() {
       return;
     }
 
+    // Each domain needs at least one training day
+    const missingSchedule = selectedDomains.find((d) => !(schedules[d]?.length));
+    if (missingSchedule) {
+      const label = DOMAIN_TYPES.find((dt) => dt.type === missingSchedule)?.label || missingSchedule;
+      Alert.alert('Error', `Please pick at least one training day for ${label}`);
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Create domains sequentially so AI can avoid schedule conflicts
@@ -86,6 +110,7 @@ export default function SetupScreen() {
           domainType,
           skillLevel: skillLevels[domainType],
           customName: customNames[domainType]?.trim() || undefined,
+          weeklySchedule: (schedules[domainType] ?? []).join(','),
         });
       }
       router.replace('/(auth)/setup-review');
@@ -161,6 +186,25 @@ export default function SetupScreen() {
                       >
                         <Text style={[styles.pillText, isActive && styles.pillTextSelected]}>
                           {level.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Training days */}
+                <Text style={styles.scheduleLabel}>Training days</Text>
+                <View style={styles.dayRow}>
+                  {WEEKDAYS.map((day) => {
+                    const isActive = (schedules[domainType] ?? []).includes(day.value);
+                    return (
+                      <TouchableOpacity
+                        key={day.value}
+                        style={[styles.dayChip, isActive && styles.dayChipSelected]}
+                        onPress={() => toggleDayForDomain(domainType, day.value)}
+                      >
+                        <Text style={[styles.dayChipText, isActive && styles.dayChipTextSelected]}>
+                          {day.label}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -311,6 +355,40 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
   },
   pillTextSelected: {
+    color: '#f8fafc',
+  },
+  scheduleLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#cbd5e1',
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  dayChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#0f172a',
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    minWidth: 44,
+    alignItems: 'center',
+  },
+  dayChipSelected: {
+    borderColor: '#3b82f6',
+    backgroundColor: '#1e3a5f',
+  },
+  dayChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94a3b8',
+  },
+  dayChipTextSelected: {
     color: '#f8fafc',
   },
   button: {

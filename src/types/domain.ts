@@ -9,6 +9,8 @@
     context?: string;
     skillLevel: SkillLevel;
     linkedResourceUrl?: string;
+    /** User-chosen training days, comma-separated 3-letter names (e.g. "Mon,Wed,Fri"). */
+    weeklySchedule?: string;
   }
 
   export interface DomainResponse {

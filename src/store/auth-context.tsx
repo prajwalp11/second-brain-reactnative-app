@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { getGoogleSignin } from '@/services/googleSignin';
 import { setOnTokenExpired } from '@/services/api';
 
 interface AuthContextType {
@@ -35,9 +35,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     // Clear the cached Google account too, so the next "Continue with Google" shows the account
-    // picker (lets the user choose a different email). Ignore if the user never used Google.
+    // picker. Guarded: the native module is absent in Expo Go, so this is a no-op there.
     try {
-      await GoogleSignin.signOut();
+      const mod = getGoogleSignin();
+      if (mod) {
+        await mod.GoogleSignin.signOut();
+      }
     } catch {
       // no-op: not signed in with Google, or SDK unavailable
     }
