@@ -12,6 +12,7 @@ export const ENDPOINTS = {
     RESEND_VERIFICATION: '/auth/resend-verification',
     REQUEST_ACCOUNT_DELETION: '/auth/request-account-deletion',
     DELETE_ACCOUNT: '/auth/delete-account',
+    GOOGLE: '/auth/google',
   },
   DOMAINS: {
     LIST: '/domains',

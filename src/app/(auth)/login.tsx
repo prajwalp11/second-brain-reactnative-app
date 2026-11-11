@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { loginUser } from '@/services/auth';
+import { loginUser, googleLogin } from '@/services/auth';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useAuth } from '@/store/auth-context';
 
 export default function LoginScreen() {
@@ -21,6 +22,33 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { idToken, error: googleError, ready, signInWithGoogle, reset } = useGoogleAuth();
+
+  // When Google returns an ID token, exchange it with our backend for app tokens.
+  useEffect(() => {
+    if (!idToken) return;
+    (async () => {
+      setGoogleLoading(true);
+      try {
+        const response = await googleLogin(idToken);
+        await signIn(response.accessToken, response.refreshToken);
+      } catch (error: any) {
+        const message = error.response?.data?.message || 'Google sign-in failed.';
+        Alert.alert('Error', message);
+      } finally {
+        setGoogleLoading(false);
+        reset();
+      }
+    })();
+  }, [idToken]);
+
+  useEffect(() => {
+    if (googleError) {
+      Alert.alert('Google sign-in', googleError);
+      reset();
+    }
+  }, [googleError]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -103,6 +131,23 @@ export default function LoginScreen() {
           >
             <Text style={styles.buttonText}>
               {isLoading ? 'Signing in...' : 'Sign In'}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.googleButton, (!ready || googleLoading) && styles.buttonDisabled]}
+            onPress={() => signInWithGoogle()}
+            disabled={!ready || googleLoading}
+          >
+            <Ionicons name="logo-google" size={18} color="#f8fafc" />
+            <Text style={styles.googleButtonText}>
+              {googleLoading ? 'Signing in...' : 'Continue with Google'}
             </Text>
           </TouchableOpacity>
 
@@ -197,6 +242,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#334155',
+  },
+  dividerText: {
+    color: '#64748b',
+    fontSize: 13,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingVertical: 15,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#f8fafc',
   },
   linkText: {
     textAlign: 'center',

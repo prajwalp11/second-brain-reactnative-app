@@ -36,3 +36,8 @@ export async function requestAccountDeletion(): Promise<void> {
 export async function deleteAccount(code: string, password: string): Promise<void> {
   await api.post(ENDPOINTS.AUTH.DELETE_ACCOUNT, { code, password });
 }
+
+export async function googleLogin(idToken: string): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>(ENDPOINTS.AUTH.GOOGLE, { idToken });
+  return response.data;
+}

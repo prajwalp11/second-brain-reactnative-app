@@ -214,3 +214,40 @@ Root `_layout.tsx` returns a loading View before mounting the <Stack>, so expo-r
 - **api.ts** 401 interceptor rewritten: on 401 it calls `/auth/refresh` with the stored refresh token (via a separate bare axios client to avoid interceptor recursion), stores the rotated access+refresh pair, and **replays the original request**. Concurrent 401s share one in-flight refresh (no stampede); guarded against retry loops and against refreshing the refresh endpoint itself. Only if refresh fails does it clear tokens + trigger logout.
 - login.tsx passes both tokens to `signIn`. verify-email still just routes to login (login handles token storage).
 - Net: access token 1h, refresh 60d rotating, single active session (a new login elsewhere invalidates this device at next refresh). Users stay logged in as long as they open the app within any 60-day window.
+
+## Session Log — Google SSO (app) + bundle/package rename
+
+- **`useGoogleAuth` hook** (`src/hooks/useGoogleAuth.ts`): `expo-auth-session/providers/google` `useAuthRequest` with `iosClientId`/`androidClientId` (native clients handle redirect via bundle id/package + SHA-1 — no custom-scheme redirect URI needed). Returns `{ idToken, error, ready, signInWithGoogle, reset }`.
+- **login.tsx**: "Continue with Google" button + divider. On id_token → `googleLogin(idToken)` → `signIn(access, refresh)`.
+- Services: `googleLogin(idToken)` → `POST /auth/google`. Endpoint const `AUTH.GOOGLE`.
+- Config: `EXPO_PUBLIC_GOOGLE_SSO_IOS_CLIENT_ID` + `EXPO_PUBLIC_GOOGLE_SSO_ANDROID_CLIENT_ID` (public). The earlier `EXPO_PUBLIC_GOOGLE_SSO_CLIENT_ID` (Web) was removed — Web OAuth client was revoked. **[SUPERSEDED — see "Google SSO switched to native SDK (CURRENT)" below: the Web client was recreated and IS required as `EXPO_PUBLIC_GOOGLE_SSO_WEB_CLIENT_ID`.]**
+- Installed `expo-auth-session` + `expo-crypto` (SDK 58).
+- **app.json identifiers** changed `com.anonymous.secondbrainreactnativeapp` → **`com.secondbrain.app`** (ios.bundleIdentifier + android.package). Scheme `secondbrainreactnativeapp` unchanged.
+- **Testing:** needs an EAS dev/standalone build (Google sign-in does not work in Expo Go). Android OAuth client requires the SHA-1 of the keystore for `com.secondbrain.app`; Play Store prod will also need Google Play App Signing's SHA-1 added to the same client.
+
+
+## Session Log — Google SSO switched to native SDK (CURRENT / supersedes above)
+
+The earlier `expo-auth-session` browser flow was replaced because, on standalone Android builds, the
+browser/redirect flow repeatedly failed (`400 invalid_request`, "custom URI scheme not enabled", and
+post-consent redirect landing on google.com instead of returning to the app). We moved to the native
+Google Sign-In SDK, which has **no browser and no redirect URI**.
+
+- **Library:** `@react-native-google-signin/google-signin` (native module; config plugin added to
+  `app.json` `plugins`). Does NOT run in Expo Go — requires an EAS dev/preview/production build.
+- **`useGoogleAuth` hook** (`src/hooks/useGoogleAuth.ts`): `GoogleSignin.configure({ webClientId, scopes:['openid','email','profile'] })` on mount; `signInWithGoogle()` → `hasPlayServices()` → `signIn()` → reads `response.data.idToken` (v14 response shape: `{ type:'success', data: User } | { type:'cancelled' }`). Same return shape as before `{ idToken, error, ready, signInWithGoogle, reset }`, so **login.tsx is unchanged**.
+- **Client IDs (all public, via EAS env vars — EAS cloud builds do NOT read local `.env`):**
+  - `EXPO_PUBLIC_GOOGLE_SSO_WEB_CLIENT_ID` — **required**; passed as the SDK's `webClientId`. The
+    returned id_token's `aud` is this Web client, so the backend `GOOGLE_SSO_CLIENT_ID` must list it.
+  - `EXPO_PUBLIC_GOOGLE_SSO_ANDROID_CLIENT_ID` — Android client (package `com.secondbrain.app` + SHA-1)
+    authorizes the sign-in on Android.
+  - `EXPO_PUBLIC_GOOGLE_SSO_IOS_CLIENT_ID` — iOS builds.
+  - (The Web client had been revoked earlier and was **recreated** — it is required again for the native SDK.)
+- **Sign-out:** `store/auth-context.tsx` `signOut()` now calls `GoogleSignin.signOut()` (try/catch) before
+  clearing tokens, so the next "Continue with Google" shows the account picker (lets the user switch email).
+- **Config source:** `src/constants/config.ts` exports `GOOGLE_SSO_WEB_CLIENT_ID` / `_IOS_` / `_ANDROID_`.
+- **Google Console requirement:** the Android OAuth client must have **"Enable custom URI scheme"** ON and
+  the correct **SHA-1** of the signing key. For EAS-signed builds the relevant SHA-1 is EAS's
+  (`eas credentials -p android`); add it to the Android client. A SHA-1 mismatch surfaces as
+  `DEVELOPER_ERROR` at sign-in. For Play Store, also add Google Play App Signing's SHA-1.
+- `expo-auth-session` remains in package.json but is no longer used for Google sign-in (safe to remove later).

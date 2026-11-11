@@ -9,14 +9,14 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.anonymous.secondbrainreactnativeapp"
+      "bundleIdentifier": "com.secondbrain.app"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
-      "package": "com.anonymous.secondbrainreactnativeapp"
+      "package": "com.secondbrain.app"
     },
     "web": {
       "output": "static",
@@ -37,7 +37,8 @@
       "expo-secure-store",
       "expo-sharing",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { setOnTokenExpired } from '@/services/api';
 
 interface AuthContextType {
@@ -33,6 +34,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    // Clear the cached Google account too, so the next "Continue with Google" shows the account
+    // picker (lets the user choose a different email). Ignore if the user never used Google.
+    try {
+      await GoogleSignin.signOut();
+    } catch {
+      // no-op: not signed in with Google, or SDK unavailable
+    }
     await SecureStore.deleteItemAsync('accessToken');
     await SecureStore.deleteItemAsync('refreshToken');
     setToken(null);
