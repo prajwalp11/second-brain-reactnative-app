@@ -19,6 +19,7 @@ export const ENDPOINTS = {
     CREATE: '/domains',
     DETAIL: (domainId: string) => `/domains/${domainId}`,
     CHART_DATA: (domainId: string) => `/domains/${domainId}/chart-data`,
+    CURRICULUM: (domainId: string) => `/domains/${domainId}/curriculum`,
   },
   DASHBOARD: {
     HOME: '/dashboard',
@@ -36,6 +37,7 @@ export const ENDPOINTS = {
     UPCOMING: '/tasks/upcoming',
     UPDATE_STATUS: (taskId: string) => `/tasks/${taskId}`,
     DELETE: (taskId: string) => `/tasks/${taskId}`,
+    VIDEO_FEEDBACK: (taskId: string) => `/tasks/${taskId}/video-feedback`,
   },
   METRICS: {
     BY_DOMAIN: (domainId: string) => `/metrics/domain/${domainId}`,

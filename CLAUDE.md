@@ -279,3 +279,26 @@ Expo Go without a dev build:
   In any real build it works exactly as before — no env flag, behavior keys off whether the module exists.
 - Result: `npx expo start` (Expo Go) boots fine for UI work; Google sign-in still requires a dev/preview/
   prod build.
+
+
+## Session Log — AI Curriculum + vetted-video UI (Stage 1, CURRENT)
+
+App side of the curriculum/video system (server-side detailed in the server `CLAUDE.md` and
+`second-brain-server/docs/curriculum-video-design.md`). Tasks are now steps in an ordered per-domain
+curriculum; each carries a real ranked YouTube video that users can rate.
+
+- `constants/endpoints.ts`: `DOMAINS.CURRICULUM(domainId)` → `GET /domains/{id}/curriculum`;
+  `TASKS.VIDEO_FEEDBACK(taskId)` → `POST /tasks/{id}/video-feedback`.
+- `types/dashboard.ts`: `TaskResponse` gained `phase` + `orderIndex` (for grouped/ordered display).
+  New `StepStatus` (LOCKED | CURRENT | DONE), `VideoConfidence` (HIGH | MEDIUM | LOW), and
+  `CurriculumStepResponse` (id, orderIndex, phase, title, description, status, estMinutes, videoUrl,
+  videoTitle, videoConfidence, helpful/unhelpfulCount — video fields are read through from the server's
+  shared video_cache).
+- `services/tasks.ts`: `sendVideoFeedback(taskId, helpful)` → posts `{ helpful }`.
+- `services/domains.ts`: `getCurriculum(domainId)` → `CurriculumStepResponse[]`.
+- `app/(tabs)/index.tsx` (Home task card): added a one-tap **"Helpful? 👍/👎"** row under the video link.
+  Shown ONLY when `linkedResourceUrl` contains `/watch` (a real resolved video, not a search-URL
+  fallback). Optimistic: sets local `videoVote`, fires `sendVideoFeedback` fire-and-forget (errors
+  swallowed), then shows "Thanks for the feedback". Styles: `videoFeedbackRow/Label/Thanks`.
+
+No new env vars. `npx tsc --noEmit -p tsconfig.json` clean (exit 0).

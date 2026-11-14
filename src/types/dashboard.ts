@@ -12,6 +12,26 @@ export interface TaskResponse {
   daysRemaining: number | null;
   linkedResourceUrl: string | null;
   linkedResourceTitle: string | null;
+  phase: string | null;
+  orderIndex: number | null;
+}
+
+export type StepStatus = 'LOCKED' | 'CURRENT' | 'DONE';
+export type VideoConfidence = 'HIGH' | 'MEDIUM' | 'LOW';
+
+export interface CurriculumStepResponse {
+  id: string;
+  orderIndex: number;
+  phase: string | null;
+  title: string;
+  description: string | null;
+  status: StepStatus;
+  estMinutes: number | null;
+  videoUrl: string | null;
+  videoTitle: string | null;
+  videoConfidence: VideoConfidence | null;
+  helpfulCount: number;
+  unhelpfulCount: number;
 }
 
 export interface StreakResponse {

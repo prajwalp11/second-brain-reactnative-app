@@ -9,3 +9,8 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus): Prom
 export async function deleteTask(taskId: string): Promise<void> {
   await api.delete(ENDPOINTS.TASKS.DELETE(taskId));
 }
+
+/** 👍/👎 on the video attached to a task; folds into that video's confidence server-side. */
+export async function sendVideoFeedback(taskId: string, helpful: boolean): Promise<void> {
+  await api.post(ENDPOINTS.TASKS.VIDEO_FEEDBACK(taskId), { helpful });
+}

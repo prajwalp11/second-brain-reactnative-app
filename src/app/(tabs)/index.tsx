@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { getDashboard } from '@/services/dashboard';
 import { getProfile } from '@/services/user';
-import { deleteTask } from '@/services/tasks';
+import { deleteTask, sendVideoFeedback } from '@/services/tasks';
+import { hasVotedForTask, markVotedForTask } from '@/services/videoFeedbackStore';
 import {
   DashboardResponse,
   TaskResponse,
@@ -228,6 +229,19 @@ function TaskCard({ task, domainName, onUpdate }: { task: TaskResponse; domainNa
   const router = useRouter();
   const [isFlipped, setIsFlipped] = useState(false);
   const [isActioning, setIsActioning] = useState(false);
+  const [videoVote, setVideoVote] = useState<boolean | null>(null);
+
+  // Restore prior vote so the "Helpful?" prompt is shown only once per task (survives re-renders,
+  // screen focus, and app restarts).
+  useEffect(() => {
+    let active = true;
+    hasVotedForTask(task.id).then((voted) => {
+      if (active && voted) setVideoVote(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [task.id]);
 
   // Determine display status based on due date
   const now = new Date();
@@ -278,7 +292,7 @@ function TaskCard({ task, domainName, onUpdate }: { task: TaskResponse; domainNa
   const handleLog = () => {
     router.push({
       pathname: '/log-modal',
-      params: { domainId: task.domainId || '', sessionType: task.title || '', domainName: domainName || '' },
+      params: { domainId: task.domainId || '', sessionType: task.title || '', domainName: domainName || '', taskId: task.id },
     });
   };
 
@@ -346,6 +360,44 @@ function TaskCard({ task, domainName, onUpdate }: { task: TaskResponse; domainNa
               {task.linkedResourceTitle || 'Watch Resource'}
             </Text>
           </TouchableOpacity>
+        )}
+        {/* "Was this video helpful?" — only for a real video (not a search-link fallback). */}
+        {task.linkedResourceUrl?.includes('/watch') && (
+          <View style={styles.videoFeedbackRow}>
+            {videoVote === null ? (
+              <>
+                <Text style={styles.videoFeedbackLabel}>Was this helpful?</Text>
+                <TouchableOpacity
+                  style={styles.videoVoteButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.6}
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    setVideoVote(true);
+                    markVotedForTask(task.id);
+                    sendVideoFeedback(task.id, true).catch(() => {});
+                  }}
+                >
+                  <Ionicons name="thumbs-up-outline" size={16} color="#3b82f6" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.videoVoteButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.6}
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    setVideoVote(false);
+                    markVotedForTask(task.id);
+                    sendVideoFeedback(task.id, false).catch(() => {});
+                  }}
+                >
+                  <Ionicons name="thumbs-down-outline" size={16} color="#94a3b8" />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text style={styles.videoFeedbackThanks}>Thanks for the feedback</Text>
+            )}
+          </View>
         )}
       </View>
       <View style={[styles.statusPill, { backgroundColor: statusColors.bg }]}>
@@ -562,6 +614,32 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     fontWeight: '600',
     maxWidth: 180,
+  },
+  videoFeedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+  },
+  videoFeedbackLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    marginRight: 2,
+  },
+  videoVoteButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoFeedbackThanks: {
+    fontSize: 11,
+    color: '#64748b',
+    fontStyle: 'italic',
   },
   taskCardBack: {
     flexDirection: 'row',

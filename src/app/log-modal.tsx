@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getMetricsForDomain, createSessionLog } from '@/services/sessions';
+import { updateTaskStatus } from '@/services/tasks';
 import { MetricDefinitionResponse, FeelLabel, CreateSessionLogRequest } from '@/types/session';
 
 const FEEL_OPTIONS: { label: string; value: FeelLabel; icon: string }[] = [
@@ -27,10 +28,11 @@ const FEEL_OPTIONS: { label: string; value: FeelLabel; icon: string }[] = [
 export default function LogModal() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { domainId, sessionType: prefillSessionType, domainName } = useLocalSearchParams<{
+  const { domainId, sessionType: prefillSessionType, domainName, taskId } = useLocalSearchParams<{
     domainId: string;
     sessionType: string;
     domainName: string;
+    taskId?: string;
   }>();
 
   const [metrics, setMetrics] = useState<MetricDefinitionResponse[]>([]);
@@ -58,6 +60,20 @@ export default function LogModal() {
     }
     if (domainId) loadMetrics();
   }, [domainId]);
+
+  // Clamp metric input to the metric's declared/inferred bounds as the user types,
+  // so values can't exceed e.g. 100% (matches server-side clamping + the Log tab).
+  const handleMetricChange = (metric: MetricDefinitionResponse, text: string) => {
+    let next = text;
+    const parsed = parseFloat(text);
+    if (!isNaN(parsed)) {
+      let clamped = parsed;
+      if (metric.maxValue != null && clamped > metric.maxValue) clamped = metric.maxValue;
+      if (metric.minValue != null && clamped < metric.minValue) clamped = metric.minValue;
+      if (clamped !== parsed) next = String(clamped);
+    }
+    setMetricValues((prev) => ({ ...prev, [metric.metricKey]: next }));
+  };
 
   const handleSave = async () => {
     if (!sessionType.trim()) {
@@ -107,6 +123,17 @@ export default function LogModal() {
     setIsSaving(true);
     try {
       const response = await createSessionLog(request);
+
+      // If this log was started from a specific task (e.g. the Home card's Log button),
+      // mark THAT task done — which advances the curriculum. Ad-hoc logs pass no taskId
+      // and never complete a task.
+      if (taskId) {
+        try {
+          await updateTaskStatus(taskId, 'DONE');
+        } catch (e) {
+          console.log('Failed to complete task after log:', e);
+        }
+      }
 
       if (response.newPrs && response.newPrs.length > 0) {
         const prLines = response.newPrs.map((pr) => {
@@ -194,9 +221,7 @@ export default function LogModal() {
                   placeholder="0"
                   placeholderTextColor="#475569"
                   value={metricValues[metric.metricKey] || ''}
-                  onChangeText={(text) =>
-                    setMetricValues((prev) => ({ ...prev, [metric.metricKey]: text }))
-                  }
+                  onChangeText={(text) => handleMetricChange(metric, text)}
                   keyboardType="decimal-pad"
                 />
               </View>

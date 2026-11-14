@@ -1,5 +1,6 @@
 import api, { AI_TIMEOUT } from './api';
 import { CreateDomainRequest, DomainResponse } from '@/types/domain';
+import { CurriculumStepResponse } from '@/types/dashboard';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { PersonalRecordResponse } from '@/types/session';
 
@@ -18,6 +19,11 @@ export interface MilestoneResponse {
 
 export async function getDomains(): Promise<DomainResponse[]> {
   const response = await api.get<DomainResponse[]>(ENDPOINTS.DOMAINS.LIST);
+  return response.data;
+}
+
+export async function getCurriculum(domainId: string): Promise<CurriculumStepResponse[]> {
+  const response = await api.get<CurriculumStepResponse[]>(ENDPOINTS.DOMAINS.CURRICULUM(domainId));
   return response.data;
 }
 
