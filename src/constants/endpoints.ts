@@ -60,4 +60,8 @@ export const ENDPOINTS = {
     GET: '/insights',
     REFRESH: '/insights/refresh',
   },
+  PUSH: {
+    TOKEN: '/push/token',
+    PREFS: '/push/prefs',
+  },
 } as const;

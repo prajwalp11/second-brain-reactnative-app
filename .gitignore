@@ -34,6 +34,10 @@ yarn-error.*
 .env
 .env*.local
 
+# Firebase service-account key is secret (sending). NOTE: google-services.json is intentionally
+# NOT ignored — EAS Build only uploads git-tracked files, and it ships inside the APK anyway.
+GoogleService-Info.plist
+
 # typescript
 *.tsbuildinfo
 

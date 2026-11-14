@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View, Text, TextInput } from 'react-native';
 import { AuthProvider, useAuth } from '@/store/auth-context';
 import { getDomains } from '@/services/domains';
+import { addNotificationTapListener } from '@/services/push';
 
 // Disable OS-level font scaling globally so text renders at a consistent size
 // on all devices (prevents text clipping on Android/Samsung with large font settings).
@@ -20,6 +21,18 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
   const [checkingDomains, setCheckingDomains] = useState(false);
+
+  // Deep-link on notification tap: navigate to the route the server put in the payload.
+  useEffect(() => {
+    const cleanup = addNotificationTapListener((route, params) => {
+      try {
+        router.push({ pathname: route as any, params: params as any });
+      } catch {
+        router.push('/(tabs)' as any);
+      }
+    });
+    return cleanup;
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;

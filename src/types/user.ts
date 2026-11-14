@@ -3,6 +3,7 @@ export interface UserResponse {
   firstName: string;
   lastName: string | null;
   email: string;
+  ssoUser: boolean;
 }
 
 export interface UpdateProfileRequest {

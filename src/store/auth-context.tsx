@@ -1,7 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import { getGoogleSignin } from '@/services/googleSignin';
 import { setOnTokenExpired } from '@/services/api';
+import { registerForPush, unregisterForPush, configureForegroundHandler } from '@/services/push';
 
 interface AuthContextType {
   token: string | null;
@@ -27,13 +29,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedToken = await SecureStore.getItemAsync('accessToken');
       if (storedToken) {
         setToken(storedToken);
+        // Already authenticated — ensure this device is registered for push.
+        registerForPush();
       }
       setIsLoading(false);
     }
+    configureForegroundHandler();
     loadToken();
   }, []);
 
+  // Re-register for push whenever the app returns to the foreground while logged in. This makes
+  // enabling notifications in OS Settings take effect on return (resume OR cold start), without
+  // needing a force-close. registerForPush is idempotent + fail-soft, so re-running is safe.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && token) {
+        registerForPush();
+      }
+    });
+    return () => sub.remove();
+  }, [token]);
+
   const signOut = async () => {
+    // Unregister this device for push first (needs the auth token to call the API).
+    await unregisterForPush();
     // Clear the cached Google account too, so the next "Continue with Google" shows the account
     // picker. Guarded: the native module is absent in Expo Go, so this is a no-op there.
     try {
@@ -60,6 +79,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await SecureStore.setItemAsync('accessToken', accessToken);
     await SecureStore.setItemAsync('refreshToken', refreshToken);
     setToken(accessToken);
+    // Register this device for push now that we're authenticated (fail-soft, no await needed).
+    registerForPush();
   };
 
   return (

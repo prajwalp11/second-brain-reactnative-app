@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getProfile, updateProfile, logout } from '@/services/user';
 import { requestAccountDeletion, deleteAccount } from '@/services/auth';
 import { useAuth } from '@/store/auth-context';
+import { updatePushPrefs, PushPrefs } from '@/services/push';
 import { UserResponse } from '@/types/user';
 
 export default function SettingsScreen() {
@@ -38,6 +40,23 @@ export default function SettingsScreen() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteCode, setDeleteCode] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
+
+  // Notification toggles (optimistic; persisted via PUT /push/prefs). Default all on.
+  const [pushPrefs, setPushPrefs] = useState<PushPrefs>({
+    taskDue: true,
+    streakAtRisk: true,
+    weeklyInsight: true,
+  });
+
+  const togglePref = (key: keyof PushPrefs) => {
+    const next = { ...pushPrefs, [key]: !pushPrefs[key] };
+    setPushPrefs(next);
+    updatePushPrefs(next).catch(() => {
+      // Revert on failure so the UI reflects the real server state.
+      setPushPrefs((prev) => ({ ...prev, [key]: !next[key] }));
+      Alert.alert('Could not update', 'Please try again.');
+    });
+  };
   const [deleteSending, setDeleteSending] = useState(false);
   const [deleteConfirming, setDeleteConfirming] = useState(false);
 
@@ -143,13 +162,18 @@ export default function SettingsScreen() {
   };
 
   const confirmAccountDeletion = async () => {
-    if (deleteCode.trim().length === 0 || deletePassword.trim().length === 0) {
+    const isSso = profile?.ssoUser === true;
+    if (deleteCode.trim().length === 0) {
+      Alert.alert('Missing info', 'Enter the code from your email.');
+      return;
+    }
+    if (!isSso && deletePassword.trim().length === 0) {
       Alert.alert('Missing info', 'Enter both the code from your email and your password.');
       return;
     }
     setDeleteConfirming(true);
     try {
-      await deleteAccount(deleteCode.trim(), deletePassword);
+      await deleteAccount(deleteCode.trim(), isSso ? undefined : deletePassword);
       setDeleteModalOpen(false);
       Alert.alert('Account deleted', 'Your account and data have been deleted.', [
         { text: 'OK', onPress: async () => { await signOut(); } },
@@ -204,6 +228,39 @@ export default function SettingsScreen() {
                     <Text style={styles.profileName}>{profile?.firstName || 'User'}</Text>
                     <Text style={styles.profileEmail}>{profile?.email || ''}</Text>
                   </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Notifications */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Notifications</Text>
+              <View style={styles.card}>
+                <View style={styles.prefRow}>
+                  <Text style={styles.prefLabel}>Task reminders</Text>
+                  <Switch
+                    value={pushPrefs.taskDue}
+                    onValueChange={() => togglePref('taskDue')}
+                    trackColor={{ true: '#3b82f6', false: '#334155' }}
+                  />
+                </View>
+                <View style={styles.prefDivider} />
+                <View style={styles.prefRow}>
+                  <Text style={styles.prefLabel}>Streak at risk</Text>
+                  <Switch
+                    value={pushPrefs.streakAtRisk}
+                    onValueChange={() => togglePref('streakAtRisk')}
+                    trackColor={{ true: '#3b82f6', false: '#334155' }}
+                  />
+                </View>
+                <View style={styles.prefDivider} />
+                <View style={styles.prefRow}>
+                  <Text style={styles.prefLabel}>Weekly insight</Text>
+                  <Switch
+                    value={pushPrefs.weeklyInsight}
+                    onValueChange={() => togglePref('weeklyInsight')}
+                    trackColor={{ true: '#3b82f6', false: '#334155' }}
+                  />
                 </View>
               </View>
             </View>
@@ -313,8 +370,9 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={styles.modalBody}>
-                Enter the 6-digit code we emailed you and your password. This permanently deletes
-                your account and all data.
+                {profile?.ssoUser
+                  ? 'Enter the 6-digit code we emailed you. This permanently deletes your account and all data.'
+                  : 'Enter the 6-digit code we emailed you and your password. This permanently deletes your account and all data.'}
               </Text>
               <TextInput
                 style={styles.input}
@@ -325,14 +383,16 @@ export default function SettingsScreen() {
                 keyboardType="number-pad"
                 maxLength={6}
               />
-              <TextInput
-                style={[styles.input, { marginTop: 10 }]}
-                value={deletePassword}
-                onChangeText={setDeletePassword}
-                placeholder="Your password"
-                placeholderTextColor="#64748b"
-                secureTextEntry
-              />
+              {!profile?.ssoUser && (
+                <TextInput
+                  style={[styles.input, { marginTop: 10 }]}
+                  value={deletePassword}
+                  onChangeText={setDeletePassword}
+                  placeholder="Your password"
+                  placeholderTextColor="#64748b"
+                  secureTextEntry
+                />
+              )}
               <TouchableOpacity
                 style={[styles.deleteConfirmButton, deleteConfirming && styles.saveButtonDisabled]}
                 onPress={confirmAccountDeletion}
@@ -403,6 +463,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
     padding: 16,
+  },
+  prefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  prefLabel: {
+    fontSize: 15,
+    color: '#e2e8f0',
+  },
+  prefDivider: {
+    height: 1,
+    backgroundColor: '#334155',
+    marginVertical: 6,
   },
   profileRow: {
     flexDirection: 'row',
