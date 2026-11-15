@@ -544,6 +544,7 @@ function MilestoneCard({ milestone }: { milestone: MilestoneResponse }) {
   const config = MILESTONE_STATUS_CONFIG[milestone.status] ?? MILESTONE_STATUS_CONFIG.UPCOMING;
   const progress = milestone.progressPercent != null ? Math.min(milestone.progressPercent, 100) : 0;
   const currentDisplay = milestone.currentValue != null ? milestone.currentValue : 0;
+  const isDone = milestone.status === 'DONE';
 
   return (
     <View style={styles.milestoneCard}>
@@ -556,20 +557,24 @@ function MilestoneCard({ milestone }: { milestone: MilestoneResponse }) {
         </View>
       </View>
 
-      {/* Progress bar */}
-      <View style={styles.progressBarBg}>
-        <View
-          style={[
-            styles.progressBarFill,
-            { width: `${progress}%`, backgroundColor: config.color },
-          ]}
-        />
-      </View>
+      {/* Progress bar — only while in progress; a DONE milestone doesn't need a bar. */}
+      {!isDone && (
+        <View style={styles.progressBarBg}>
+          <View
+            style={[
+              styles.progressBarFill,
+              { width: `${progress}%`, backgroundColor: config.color },
+            ]}
+          />
+        </View>
+      )}
 
       {/* Values */}
       <View style={styles.milestoneValues}>
         <Text style={styles.milestoneValueText}>
-          {currentDisplay} / {milestone.targetValue}{milestone.unit ? ` ${milestone.unit}` : ''}
+          {isDone
+            ? `Target ${milestone.targetValue}${milestone.unit ? ` ${milestone.unit}` : ''} reached`
+            : `${currentDisplay} / ${milestone.targetValue}${milestone.unit ? ` ${milestone.unit}` : ''}`}
         </Text>
         {milestone.deadline && (
           <Text style={styles.milestoneDeadline}>Due {formatDate(milestone.deadline)}</Text>
