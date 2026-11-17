@@ -11,4 +11,5 @@ export interface UpdateProfileRequest {
   lastName?: string;
   currentPassword?: string;
   newPassword?: string;
+  timezone?: string;
 }

@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import { getGoogleSignin } from '@/services/googleSignin';
 import { setOnTokenExpired } from '@/services/api';
 import { registerForPush, unregisterForPush, configureForegroundHandler } from '@/services/push';
+import { reportTimezone } from '@/services/user';
 
 interface AuthContextType {
   token: string | null;
@@ -29,8 +30,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedToken = await SecureStore.getItemAsync('accessToken');
       if (storedToken) {
         setToken(storedToken);
-        // Already authenticated — ensure this device is registered for push.
+        // Already authenticated — ensure this device is registered for push + timezone is current.
         registerForPush();
+        reportTimezone();
       }
       setIsLoading(false);
     }
@@ -81,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(accessToken);
     // Register this device for push now that we're authenticated (fail-soft, no await needed).
     registerForPush();
+    reportTimezone();
   };
 
   return (
